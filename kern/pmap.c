@@ -177,12 +177,12 @@ i386_vm_init(void)
 	// User-level programs will get read-only access to the array as well.
 	// Your code goes here:
 	pages = (struct Page*) boot_alloc(npage * sizeof(struct Page), PGSIZE);
-//	pgdir[PDX(pages)] = PADDR(pages) | PTE_U | PTE_P;
 
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	envs = (struct Env*) boot_alloc(NENV * sizeof(struct Env), PGSIZE);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -215,6 +215,8 @@ i386_vm_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	boot_map_segment(pgdir, UENVS, ROUNDUP(NENV * sizeof(struct Env), PGSIZE),
+			 PADDR((uintptr_t)envs), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -450,6 +452,20 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 // Pages are reference counted, and free pages are kept on a linked list.
 // --------------------------------------------------------------
 
+
+#define PAGE_IN_USE (~0) /* page can never be available */
+
+static inline void init_mark_page_in_use(int idx)
+{
+	pages[idx].pp_ref = PAGE_IN_USE;
+}
+
+static inline void init_mark_page_free(int idx)
+{
+	pages[idx].pp_ref = 0;
+	LIST_INSERT_HEAD(&page_free_list, &pages[idx], pp_link);
+}
+
 //
 // Initialize page structure and memory free list.
 // After this is done, NEVER use boot_alloc again.  ONLY use the page
@@ -459,34 +475,39 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 void
 page_init(void)
 {
+	int i;
+	physaddr_t reserved;
+
+	LIST_INIT(&page_free_list);
+
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
 	//  1) Mark physical page 0 as in use.
 	//     This way we preserve the real-mode IDT and BIOS structures
 	//     in case we ever need them.  (Currently we don't, but...)
+	init_mark_page_in_use(0);
+
 	//  2) The rest of base memory, [PGSIZE, basemem) is free.
+	for (i = (PGSIZE >> PGSHIFT); i < (basemem >> PGSHIFT); i++)
+		init_mark_page_free(i);
+
 	//  3) Then comes the IO hole [IOPHYSMEM, EXTPHYSMEM).
 	//     Mark it as in use so that it can never be allocated.
+	for (i = (IOPHYSMEM >> PGSHIFT); i < (EXTPHYSMEM >> PGSHIFT); i++)
+		init_mark_page_in_use(i);
+
 	//  4) Then extended memory [EXTPHYSMEM, ...).
 	//     Some of it is in use, some is free. Where is the kernel
-	//     in physical memory?  Which pages are already in use for
-	//     page tables and other data structures?
-	//
-	// Change the code to reflect this.
-	int i;
-	int lower_ppn = PPN(IOPHYSMEM);
-	int upper_ppn = PPN(ROUNDUP(boot_freemem, PGSIZE));
-	
-	LIST_INIT(&page_free_list);
-	for (i = 0; i < npage; i++) {
-		pages[i].pp_ref = 0;
-		if (i == 0)
-			continue;
-		if (lower_ppn <= i && i < upper_ppn)
-			continue;
-		
-		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
-	}
+	//     in physical memory?  (A: from 0x100000 PA to `end' VA)
+	//     Which pages are already in use for page tables and other 
+	//     data structures? (A: whichever were allocated from bootmem allocator!
+	reserved = (physaddr_t)PADDR(ROUNDUP(boot_freemem, PGSIZE));
+
+	for (i = (EXTPHYSMEM >> PGSHIFT); i < (reserved >> PGSHIFT); i++)
+		init_mark_page_in_use(i);
+
+	for (i = (reserved >> PGSHIFT); i < (maxpa >> PGSHIFT); i++)
+		init_mark_page_free(i);
 }
 
 //
@@ -753,9 +774,25 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here. 
+	uintptr_t lva = (uintptr_t) va;
+	uintptr_t rva = (uintptr_t) va + len - 1;
+	perm = perm|PTE_U|PTE_P;
+	pte_t *pte;
+	uintptr_t idx_va;
+	for (idx_va = lva; idx_va <= rva; idx_va += PGSIZE) {
+		if (idx_va >= ULIM) {
+			user_mem_check_addr = idx_va;
+			return -E_FAULT;
+		}
+		pte = pgdir_walk (env->env_pgdir, (void*)idx_va, 0);
+		if (pte == NULL || (*pte & perm) != perm) {
+			user_mem_check_addr = idx_va;
+			return -E_FAULT;
+		}
+		idx_va = ROUNDDOWN (idx_va, PGSIZE);
+	}
 
-	return 0;
+	return 0;	
 }
 
 //

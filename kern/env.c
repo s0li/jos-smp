@@ -73,7 +73,13 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 void
 env_init(void)
 {
-	// LAB 3: Your code here.
+	int i;
+	LIST_INIT(&env_free_list);
+	for (i = NENV - 1; i >= 0; --i) {
+		envs[i].env_id = 0;
+		envs[i].env_status = ENV_FREE;
+		LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
+	}
 }
 
 //
@@ -115,6 +121,13 @@ env_setup_vm(struct Env *e)
 	//    - The functions in kern/pmap.h are handy.
 
 	// LAB 3: Your code here.
+	e->env_pgdir = page2kva(p);
+	e->env_cr3   = PADDR(e->env_pgdir);
+	memset(e->env_pgdir, 0x0, PGSIZE);
+	p->pp_ref++;
+
+	for (i = PDX(UTOP); i < NPDENTRIES; ++i)
+		e->env_pgdir[i] = boot_pgdir[i];
 
 	// VPT and UVPT map the env's own page table, with
 	// different permissions.
@@ -199,6 +212,23 @@ segment_alloc(struct Env *e, void *va, size_t len)
 	// Hint: It is easier to use segment_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round len up.
+	struct Page* p;
+	int i;
+	int errno;
+
+	va = ROUNDDOWN(va, PGSIZE);
+	len = ROUNDUP(len, PGSIZE);
+	for (i = 0; i < len; i += PGSIZE) {
+		errno = page_alloc(&p);
+		if (errno == -E_NO_MEM) {
+			cprintf("i = %d\n", i/PGSIZE);
+			panic("(segment_alloc) out of memory");
+		}
+		
+		errno = page_insert(e->env_pgdir, p, va + i, PTE_U | PTE_W | PTE_P);
+		if (errno != 0)
+			panic("(segment_alloc) %e", errno);
+	}
 }
 
 //
@@ -253,13 +283,38 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  You must also do something with the program's entry point,
 	//  to make sure that the environment starts executing there.
 	//  What?  (See env_run() and env_pop_tf() below.)
-
+	
 	// LAB 3: Your code here.
+	struct Proghdr* ph;
+	struct Proghdr* eph;
+	struct Page* usrstack;
+
+	ph	= (struct Proghdr*)(binary + ((struct Elf*)binary)->e_phoff);
+	eph	= ph + ((struct Elf*)binary)->e_phnum;
+
+	lcr3(e->env_cr3);
+	while (ph < eph) {
+		if (ph->p_type != ELF_PROG_LOAD) {
+			ph++;
+			continue;
+		}
+		
+		segment_alloc(e, (void*)ph->p_va, ph->p_memsz);
+		memmove((void*)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+		memset((void*)(ph->p_va + ph->p_filesz), 0x0,
+		       ph->p_memsz - ph->p_filesz);
+		ph++;
+	}
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+	if (page_alloc(&usrstack) == -E_NO_MEM)
+		panic("(load_icode) out of memory");
+	page_insert(e->env_pgdir, usrstack, (void*)(USTACKTOP - PGSIZE),
+		    PTE_U | PTE_W | PTE_P);
+	e->env_tf.tf_eip = ((struct Elf*)binary)->e_entry;
 }
 
 //
@@ -272,7 +327,13 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 void
 env_create(uint8_t *binary, size_t size)
 {
-	// LAB 3: Your code here.
+	int errno;
+	struct Env* env;
+
+	errno = env_alloc(&env, 0);
+	if (errno < 0)
+		panic("(env_create) %e", errno);
+	load_icode(env, binary, size);
 }
 
 //
@@ -384,7 +445,9 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
-
-	panic("env_run not yet implemented");
+	curenv = e;
+	curenv->env_runs++;
+	lcr3(curenv->env_cr3);
+	env_pop_tf(&(e->env_tf));
 }
 
