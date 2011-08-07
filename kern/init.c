@@ -28,8 +28,6 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
-
 	// Lab 2 memory management initialization functions
 	i386_detect_memory();
 	i386_vm_init();
@@ -47,6 +45,11 @@ i386_init(void)
 
 	// Start fs.
 	ENV_CREATE(fs_fs);
+	
+	// this is a sanity check for the scheduler
+	/* ENV_CREATE(user_yield); */
+	/* ENV_CREATE(user_yield); */
+	/* ENV_CREATE(user_yield); */
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
@@ -60,6 +63,10 @@ i386_init(void)
 
 	// Schedule and run the first user environment!
 	sched_yield();
+
+	// Drop into the kernel monitor.
+	while (1)
+		monitor(NULL);
 }
 
 

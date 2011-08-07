@@ -25,7 +25,12 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
+	if (!(err & FEC_WR))
+		panic("(pgfault) fault is not a write: err %08x\n", err);
 
+	if (!(vpt[VPN(addr)] & PTE_COW))
+		panic("(pgfault) fault on a non-cow page: va %p\n", addr);
+	
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
@@ -34,8 +39,18 @@ pgfault(struct UTrapframe *utf)
 	//   No need to explicitly delete the old page's mapping.
 
 	// LAB 4: Your code here.
+	if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_alloc: %e", r);
 
-	panic("pgfault not implemented");
+	memmove(PFTEMP, ROUNDDOWN(addr, PGSIZE), PGSIZE);
+
+	if ((r = sys_page_map(0, PFTEMP, 0, ROUNDDOWN(addr, PGSIZE), 
+			      PTE_P|PTE_U|PTE_W)) < 0)
+		panic("sys_page_map: %e", r);
+
+
+	if ((r = sys_page_unmap(0, PFTEMP)) < 0)
+		panic("sys_page_unmap: %e\n", r);
 }
 
 //
@@ -52,10 +67,22 @@ pgfault(struct UTrapframe *utf)
 static int
 duppage(envid_t envid, unsigned pn)
 {
-	int r;
+	int errno;
+	uintptr_t addr = pn * PGSIZE;
+	int perm = PTE_U | PTE_P;
 
-	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	if (vpt[pn] & (PTE_W | PTE_COW))
+		perm |= PTE_COW;
+
+	// map the page in the target env
+	if ((errno = sys_page_map(0, (void*)addr, envid, (void*)addr, perm)) < 0)
+	 	panic("(duppage) %e", errno);
+	/* re-map the page in ourselves if needed */
+	if (perm & PTE_COW) {
+		if ((errno = sys_page_map(0, (void*)addr, 0, (void*)addr, perm)) < 0)
+			panic("(duppage) %e", errno);
+	}
+
 	return 0;
 }
 
@@ -79,7 +106,39 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	uintptr_t addr;
+	envid_t forked_envid;
+	
+	set_pgfault_handler(pgfault);
+	if ((forked_envid = sys_exofork()) < 0)
+		return forked_envid; //failure
+	
+	if (forked_envid == 0) {
+		// child
+		env = &envs[ENVX(sys_getenvid())];
+		return forked_envid;
+	}
+
+	addr = 0;
+	while (addr < USTACKTOP) {
+		if (!(vpd[VPD(addr)] & PTE_P)) {
+			addr += PTSIZE;
+			continue;
+		}
+		
+		if (!(vpt[VPN(addr)] & PTE_P)) {
+			addr += PGSIZE;
+			continue;
+		}
+
+		duppage(forked_envid, VPN(addr));
+		
+		addr += PGSIZE;
+	}	
+	alloc_pgfault_stack(forked_envid);
+	sys_env_set_status(forked_envid, ENV_RUNNABLE);
+
+	return forked_envid;
 }
 
 // Challenge!

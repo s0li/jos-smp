@@ -64,7 +64,82 @@ idt_init(void)
 	extern struct Segdesc gdt[];
 	
 	// LAB 3: Your code here.
+	extern void routine_divide();
+	extern void routine_debug();
+	extern void routine_nmi();
+	extern void routine_brkpt();
+	extern void routine_oflow();
+	extern void routine_bound();
+	extern void routine_illop();
+	extern void routine_device();
+	extern void routine_dblflt();
+	extern void routine_tss();
+	extern void routine_segnp();
+	extern void routine_stack();
+	extern void routine_gpflt();
+	extern void routine_pgflt();
+	extern void routine_fperr();
+	extern void routine_align();
+	extern void routine_mchk();
+	extern void routine_simderr();
 
+	extern void routine_syscall();
+
+	extern void irq0_handler();
+	extern void irq1_handler();
+	extern void irq2_handler();
+	extern void irq3_handler();
+	extern void irq4_handler();
+	extern void irq5_handler();
+	extern void irq6_handler();
+	extern void irq7_handler();
+	extern void irq8_handler();
+	extern void irq9_handler();
+	extern void irq10_handler();
+	extern void irq11_handler();
+	extern void irq12_handler();
+	extern void irq13_handler();
+	extern void irq14_handler();
+	extern void irq15_handler();
+	
+	SETGATE(idt[T_DIVIDE],  0, GD_KT, routine_divide,  0);
+	SETGATE(idt[T_DEBUG],   0, GD_KT, routine_debug,   0);
+	SETGATE(idt[T_NMI],     0, GD_KT, routine_nmi,     0);
+	SETGATE(idt[T_BRKPT],   0, GD_KT, routine_brkpt,   3);
+	SETGATE(idt[T_OFLOW],   0, GD_KT, routine_oflow,   0);
+	SETGATE(idt[T_BOUND],   0, GD_KT, routine_bound,   0);
+	SETGATE(idt[T_ILLOP],   0, GD_KT, routine_illop,   0);
+	SETGATE(idt[T_DEVICE],  0, GD_KT, routine_device,  0);
+	SETGATE(idt[T_DBLFLT],  0, GD_KT, routine_dblflt,  0);
+	SETGATE(idt[T_TSS],     0, GD_KT, routine_tss,     0);
+	SETGATE(idt[T_SEGNP],   0, GD_KT, routine_segnp,   0);
+	SETGATE(idt[T_STACK],   0, GD_KT, routine_stack,   0);
+	SETGATE(idt[T_GPFLT],   0, GD_KT, routine_gpflt,   0);
+	SETGATE(idt[T_PGFLT],   0, GD_KT, routine_pgflt,   0);
+	SETGATE(idt[T_FPERR],   0, GD_KT, routine_fperr,   0);
+	SETGATE(idt[T_ALIGN],   0, GD_KT, routine_align,   0);
+	SETGATE(idt[T_MCHK],    0, GD_KT, routine_mchk,    0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, routine_simderr, 0);
+
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, routine_syscall, 3);
+
+	SETGATE(idt[IRQ_OFFSET], 0, GD_KT, irq0_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 1], 0, GD_KT, irq1_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, irq2_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, irq3_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 4], 0, GD_KT, irq4_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, irq5_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, irq6_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 7], 0, GD_KT, irq7_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, irq8_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, irq9_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, irq10_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, irq11_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, irq12_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, irq13_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, irq14_handler, 0);
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, irq15_handler, 0);
+	
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	ts.ts_esp0 = KSTACKTOP;
@@ -116,19 +191,33 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-	
-	// Handle clock interrupts.
-	// LAB 4: Your code here.
+	switch (tf->tf_trapno) {
+	case T_PGFLT:
+		page_fault_handler(tf);
+		return;
+	case T_BRKPT:
+		monitor(tf);
+		return;
+	case T_SYSCALL:
+		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
+					      tf->tf_regs.reg_edx,
+					      tf->tf_regs.reg_ecx,
+					      tf->tf_regs.reg_ebx,
+					      tf->tf_regs.reg_edi,
+					      tf->tf_regs.reg_esi);
+		return;
 
-	// Handle spurious interrupts
-	// The hardware sometimes raises these because of noise on the
-	// IRQ line or other reasons. We don't care.
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
+	case IRQ_OFFSET + IRQ_TIMER:
+		sched_yield();
+		return;
+	case IRQ_OFFSET + IRQ_SPURIOUS:
+		// Handle spurious interrupts
+		// The hardware sometimes raises these because of noise on the
+		// IRQ line or other reasons. We don't care.
 		cprintf("Spurious interrupt on irq 7\n");
 		print_trapframe(tf);
 		return;
 	}
-
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -187,6 +276,8 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 	
 	// LAB 3: Your code here.
+	if (!(tf->tf_cs && 3))
+		panic("(page_fault_handler) pgfault from inside kernel");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
@@ -220,7 +311,35 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	if (!curenv->env_pgfault_upcall)
+		goto bad;
 
+	struct UTrapframe* utf;
+	void* exstack = (void*)(UXSTACKTOP - PGSIZE);
+
+	// Did we fault while running on the exception stack?
+	if (((uintptr_t)exstack <= tf->tf_esp) && (tf->tf_esp <= UXSTACKTOP-1)) {
+		// Leave one empty word as scratch space
+		utf = (void*)(tf->tf_esp - sizeof(*utf) - 4);
+	} else // First exception
+		utf = (void*)(UXSTACKTOP - sizeof(*utf));
+	
+	// Check that we have enough exception stack at utf
+	user_mem_assert(curenv, utf, sizeof(*utf), PTE_W);
+
+	utf->utf_fault_va = fault_va;
+	utf->utf_err = tf->tf_err;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	utf->utf_esp = tf->tf_esp;
+
+	tf->tf_esp = (uintptr_t)&utf->utf_fault_va;
+	tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+
+	env_run(curenv);  // never returns
+	
+bad:
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);
