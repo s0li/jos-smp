@@ -43,6 +43,11 @@ i386_init(void)
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
 
+	// this is a sanity check for the scheduler
+	/* ENV_CREATE(user_yield); */
+	/* ENV_CREATE(user_yield); */
+	/* ENV_CREATE(user_yield); */
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE2(TEST, TESTSIZE)
