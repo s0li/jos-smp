@@ -40,6 +40,7 @@ i386_init(void)
 	pic_init();
 	kclock_init();
 
+	
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
 
