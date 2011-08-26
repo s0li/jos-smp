@@ -161,6 +161,7 @@ print-qemugdb:
 
 # For deleting the build
 clean:
+#	@echo $(GCCPREFIX)
 	rm -rf $(OBJDIR) .gdbinit jos.in
 
 realclean: clean
