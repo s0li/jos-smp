@@ -12,6 +12,9 @@
 #include <kern/kclock.h>
 #include <kern/picirq.h>
 
+#include <kern/mp.h>
+#include <kern/cpu.h>
+
 static struct Taskstate ts;
 
 /* Interrupt descriptor table.  (Must be built at run time because
@@ -139,19 +142,28 @@ idt_init(void)
 	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, irq13_handler, 0);
 	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, irq14_handler, 0);
 	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, irq15_handler, 0);
+
+	tss_init_percpu();
+}
+
+// Initialize the TSS and TSS descriptor.
+void
+tss_init_percpu(void) {
+	int cpuid = cpunum();
 	
+	thisCPU = &cpus[cpuid];
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
+	thisCPU->ts.ts_esp0 = (uintptr_t)kstacks[cpuid] + KSTKSIZE;
+	thisCPU->ts.ts_ss0 = GD_KD;	
 
 	// Initialize the TSS field of the gdt.
-	gdt[GD_TSS >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
-					sizeof(struct Taskstate), 0);
-	gdt[GD_TSS >> 3].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + cpuid] = SEG16(STS_T32A, (uint32_t) (&(thisCPU->ts)),
+					    sizeof(struct Taskstate), 0);
+	gdt[(GD_TSS0 >> 3) + cpuid].sd_s = 0;
 
 	// Load the TSS
-	ltr(GD_TSS);
+	ltr(((GD_TSS0 >> 3) + cpuid) << 3);
 
 	// Load the IDT
 	asm volatile("lidt idt_pd");

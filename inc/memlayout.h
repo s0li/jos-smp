@@ -17,7 +17,11 @@
 #define GD_KD     0x10     // kernel data
 #define GD_UT     0x18     // user text
 #define GD_UD     0x20     // user data
-#define GD_TSS    0x28     // Task segment selector
+#define GD_TSS0   0x28     // Task segment selector
+
+#define GD_TSS1    0x30     // Task segment selector
+#define GD_TSS2    0x38     // Task segment selector
+
 
 /*
  * Virtual memory map:                                Permissions
@@ -77,6 +81,8 @@
  *     at UTEMP.
  */
 
+// -- SMP --
+#define LAPIC_GAP       0xFE000000
 
 // All physical memory mapped at this address
 #define	KERNBASE	0xF0000000
@@ -94,6 +100,7 @@
 #define VPT		(KERNBASE - PTSIZE)
 #define KSTACKTOP	VPT
 #define KSTKSIZE	(8*PGSIZE)   		// size of a kernel stack
+#define KSTKGAP         (8*PGSIZE)
 #define ULIM		(KSTACKTOP - PTSIZE) 
 
 /*

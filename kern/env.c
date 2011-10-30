@@ -415,7 +415,6 @@ void
 env_destroy(struct Env *e) 
 {
 	env_free(e);
-
 	if (curenv == e) {
 		curenv = NULL;
 		sched_yield();
@@ -439,7 +438,7 @@ env_pop_tf(struct Trapframe *tf)
 		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
 		"\tiret"
 		: : "g" (tf) : "memory");
-	panic("iret failed");  /* mostly to placate the compiler */
+	panic("(env_pop_tf) iret failed");  /* mostly to placate the compiler */
 }
 
 //

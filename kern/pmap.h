@@ -48,6 +48,8 @@ extern pde_t *boot_pgdir;
 extern struct Segdesc gdt[];
 extern struct Pseudodesc gdt_pd;
 
+void	seginit();
+
 void	i386_vm_init();
 void	i386_detect_memory();
 

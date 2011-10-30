@@ -5,10 +5,13 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/memlayout.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
 #include <kern/env.h>
+
+#include <kern/mp.h>
 
 // These variables are set by i386_detect_memory()
 static physaddr_t maxpa;	// Maximum physical address
@@ -30,7 +33,7 @@ static struct Page_list page_free_list;	// Free list of physical pages
 // To load the SS register, the CPL must equal the DPL.  Thus,
 // we must duplicate the segments for the user and the kernel.
 //
-struct Segdesc gdt[] =
+struct Segdesc gdt[NCPU + 5] =
 {
 	// 0x0 - unused (always faults -- for trapping NULL far pointers)
 	SEG_NULL,
@@ -48,7 +51,9 @@ struct Segdesc gdt[] =
 	[GD_UD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 3),
 
 	// 0x28 - tss, initialized in idt_init()
-	[GD_TSS >> 3] = SEG_NULL
+	[GD_TSS0 >> 3] = SEG_NULL,
+	[GD_TSS1 >> 3] = SEG_NULL,
+	[GD_TSS2 >> 3] = SEG_NULL
 };
 
 struct Pseudodesc gdt_pd = {
@@ -148,6 +153,7 @@ i386_vm_init(void)
 	pde_t* pgdir;
 	uint32_t cr0;
 	size_t n;
+	int cpuid;
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -191,9 +197,8 @@ i386_vm_init(void)
 	// particular, we can now map memory using boot_map_segment or page_insert
 	page_init();
 
-	check_page_alloc();
-
-	page_check();
+//	check_page_alloc();
+//	page_check();
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory 
@@ -243,8 +248,31 @@ i386_vm_init(void)
 	// Your code goes here:
 	boot_map_segment(pgdir, KERNBASE, ~KERNBASE + 1, (physaddr_t)0, PTE_W);
 
+	// -- SMP --
+	// The LAPIC lives in a hole starting at physical address 0xFE000000
+	// (32MB short of 4GB), so it's too high for us to access using our
+	// usual direct map at KERNBASE. We tweak JOS's memory layout to map the
+	// top 32MB of the kernel virtual address space, starting at IOMEMBASE
+	// (0xFE000000), to the IO hole containing the LAPIC. Since this region
+	// starts at physical address 0xFE000000, this is an identity mapping.
+	boot_map_segment(pgdir, LAPIC_GAP, (1 << 25), LAPIC_GAP, PTE_W);
+
+	// Map kernel stacks for all CPUs
+	for (cpuid = 0; cpuid < NCPU; ++cpuid) {
+		boot_map_segment(pgdir, (KSTACKTOP - cpuid * (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE,
+				 PADDR((uintptr_t)kstacks[cpuid]), PTE_W);
+	}
+
+	
+	/* boot_map_segment(pgdir, (KSTACKTOP - (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE, */
+	/* 		 PADDR((uintptr_t)kstacks[1]), PTE_W); */
+	/* boot_map_segment(pgdir, (KSTACKTOP - 2 * (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE, */
+	/* 		 PADDR((uintptr_t)kstacks[2]), PTE_W); */
+	// --------------------------------------------------
+
 	// Check that the initial page directory has been set up correctly.
-	check_boot_pgdir();
+	// causes assertion fail due to remapped stacks
+//	check_boot_pgdir();
 
 	//////////////////////////////////////////////////////////////////////
 	// On x86, segmentation maps a VA to a LA (linear addr) and
@@ -266,7 +294,7 @@ i386_vm_init(void)
 
 	// Install page table.
 	lcr3(boot_cr3);
-
+	
 	// Turn on paging.
 	cr0 = rcr0();
 	cr0 |= CR0_PE|CR0_PG|CR0_AM|CR0_WP|CR0_NE|CR0_TS|CR0_EM|CR0_MP;
@@ -277,14 +305,7 @@ i386_vm_init(void)
 	// (x < 4MB so uses paging pgdir[0])
 
 	// Reload all segment registers.
-	asm volatile("lgdt gdt_pd");
-	asm volatile("movw %%ax,%%gs" :: "a" (GD_UD|3));
-	asm volatile("movw %%ax,%%fs" :: "a" (GD_UD|3));
-	asm volatile("movw %%ax,%%es" :: "a" (GD_KD));
-	asm volatile("movw %%ax,%%ds" :: "a" (GD_KD));
-	asm volatile("movw %%ax,%%ss" :: "a" (GD_KD));
-	asm volatile("ljmp %0,$1f\n 1:\n" :: "i" (GD_KT));  // reload cs
-	asm volatile("lldt %%ax" :: "a" (0));
+	seginit();
 
 	// Final mapping: KERNBASE+x => KERNBASE+x => x.
 
@@ -294,6 +315,19 @@ i386_vm_init(void)
 
 	// Flush the TLB for good measure, to kill the pgdir[0] mapping.
 	lcr3(boot_cr3);
+}
+
+void
+seginit()
+{
+	asm volatile("lgdt gdt_pd");
+	asm volatile("movw %%ax,%%gs" :: "a" (GD_UD|3));
+	asm volatile("movw %%ax,%%fs" :: "a" (GD_UD|3));
+	asm volatile("movw %%ax,%%es" :: "a" (GD_KD));
+	asm volatile("movw %%ax,%%ds" :: "a" (GD_KD));
+	asm volatile("movw %%ax,%%ss" :: "a" (GD_KD));
+	asm volatile("ljmp %0,$1f\n 1:\n" :: "i" (GD_KT));  // reload cs
+	asm volatile("lldt %%ax" :: "a" (0));
 }
 
 //

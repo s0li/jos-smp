@@ -62,6 +62,10 @@ QEMUGDB = $(shell if $(QEMU) -nographic -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 
+ifndef CPUS
+CPUS := 1
+endif
+
 CC	:= $(GCCPREFIX)gcc -pipe
 AS	:= $(GCCPREFIX)as
 AR	:= $(GCCPREFIX)ar
@@ -124,7 +128,7 @@ include fs/Makefrag
 
 
 IMAGES = $(OBJDIR)/kern/kernel.img $(OBJDIR)/fs/fs.img
-QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -hdb $(OBJDIR)/fs/fs.img -serial mon:stdio
+QEMUOPTS =  -serial mon:stdio -hda $(OBJDIR)/kern/kernel.img -hdb $(OBJDIR)/fs/fs.img -smp $(CPUS)
 
 .gdbinit: .gdbinit.tmpl
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@

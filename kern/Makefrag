@@ -31,6 +31,13 @@ KERN_SRCFILES :=	kern/entry.S \
 			lib/readline.c \
 			lib/string.c
 
+# Source files for SMP support
+KERN_SRCFILES +=       kern/bootother.S \
+	      	       kern/mp.c \
+	      	       kern/lapic.c \
+		       kern/ioapic.c \
+		       kern/entrypgdir.c
+
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 

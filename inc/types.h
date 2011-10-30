@@ -18,6 +18,11 @@ typedef unsigned int uint32_t;
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
 
+// xv6 shit
+typedef unsigned char  uchar;
+typedef unsigned int   uint;
+typedef unsigned short ushort;
+
 // Pointers and addresses are 32 bits long.
 // We use pointer types to represent virtual addresses,
 // uintptr_t to represent the numerical values of virtual addresses,
