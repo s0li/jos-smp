@@ -68,11 +68,13 @@ i386_init(void)
 	// the kclock init isn't needed anymore beacuse we init the
 	//clock tick in lapicinit
 //	kclock_init();
-	bootothers();
+	if (ncpu > 1)
+		bootothers();
 	thisCPU = &cpus[cpunum()];
 	
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
+	ENV_CREATE(user_yield);
 	
 	// Start fs.
 	// TODO enable this fucker after playing with mpinit
@@ -110,8 +112,6 @@ bootothers(void)
         uchar *code;
         struct CPU *c;
 //        char *stack;
-	if (ncpu == 1)
-		return;
         // Write bootstrap code to unused memory at 0x7000.
         // The linker has placed the image of bootother.S in
         // _binary_bootother_start.
