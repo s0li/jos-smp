@@ -19,7 +19,7 @@ struct mp;
 struct mpconf;
 
 struct CPU cpus[NCPU];
-static struct CPU *bcpu;
+struct CPU *bcpu;
 int ismp;
 int ncpu;
 uchar ioapicid;

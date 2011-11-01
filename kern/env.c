@@ -332,6 +332,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	page_insert(e->env_pgdir, usrstack, (void*)(USTACKTOP - PGSIZE),
 		    PTE_U | PTE_W | PTE_P);
 	e->env_tf.tf_eip = ((struct Elf*)binary)->e_entry;
+	cprintf("(load_icode) user eip = %x\n", e->env_tf.tf_eip);
 }
 
 //
@@ -431,6 +432,8 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
+	cprintf("(env_pop_tf) ULIM = %x\n", ULIM);
+	cprintf("(env_pop_tf) eip = %x\n", tf->tf_eip);
 	__asm __volatile("movl %0,%%esp\n"
 		"\tpopal\n"
 		"\tpopl %%es\n"

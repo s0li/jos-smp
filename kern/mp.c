@@ -159,6 +159,8 @@ mpinit(void) {
         struct mpioapic *ioapic;
 
         bcpu = &cpus[0];
+	cprintf("(mpinit) bcpu = %x\n", bcpu);
+	cprintf("(mpinit) &cpus[0] = %x\n", &cpus[0]);
         if((conf = mpconfig(&mp)) == 0) {
 		// debug
 		cprintf(" -- debug -- (mpinit) mpconfig has returned 0\n");
@@ -167,16 +169,18 @@ mpinit(void) {
 	
         ismp = 1;
         lapic = (uint*)conf->lapicaddr;
-	   for(p=(uchar*)(conf+1), e=(uchar*)conf+conf->length; p<e; ){
+	for(p=(uchar*)(conf+1), e=(uchar*)conf+conf->length; p<e; ){
                 switch(*p){
                 case MPPROC:
                         proc = (struct mpproc*)p;
                         if(ncpu != proc->apicid){
-                                cprintf("mpinit: ncpu=%d apicid=%d\n", ncpu, proc->apicid);
+                                cprintf("(mpinit) ncpu=%d apicid=%d\n", ncpu, proc->apicid);
                                 ismp = 0;
                         }
-                        if(proc->flags & MPBOOT)
+                        if(proc->flags & MPBOOT) {
+				cprintf("(mpinit) bcpu is chaning to %x\n", &cpus[ncpu]);
                                 bcpu = &cpus[ncpu];
+			}
 			if (ncpu < NCPU) {
 				cpus[ncpu].id = ncpu;
 				ncpu++;
@@ -202,7 +206,8 @@ mpinit(void) {
                         ismp = 0;
                 }
         }
-	   
+
+	cprintf("(mpinit) after loop bcpu = %x\n", bcpu);
         if(!ismp){
 		cprintf(" -- debug -- (mpinit) SMP conf not found\n");
 		

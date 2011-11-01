@@ -155,6 +155,7 @@ tss_init_percpu(void) {
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	thisCPU->ts.ts_esp0 = (uintptr_t)kstacks[cpuid] + KSTKSIZE;
+//	thisCPU->ts.ts_esp0 = KSTACKTOP;
 	thisCPU->ts.ts_ss0 = GD_KD;	
 
 	// Initialize the TSS field of the gdt.

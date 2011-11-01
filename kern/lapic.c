@@ -37,7 +37,7 @@ lapicinit(int c)
         // TICR would be calibrated using an external time source.
         lapicw(TDCR, X1);
         lapicw(TIMER, PERIODIC | (IRQ_OFFSET + IRQ_TIMER));
-        lapicw(TICR, 10000000); 
+        lapicw(TICR, 10000000);
 
         // Disable logical interrupt lines.
 	// ----------------------------------------
@@ -50,7 +50,10 @@ lapicinit(int c)
 	// we do not need to program the IOAPIC.
 //        if (thisCPU != bcpu)
 //		lapicw(LINT0, MASKED);
-	lapicw(LINT0, MASKED);
+	cprintf("(lapicinit) thisCPU = %x, bcpu = %x\n", thisCPU, bcpu);
+	if (thisCPU != bcpu)
+		lapicw(LINT0, MASKED);
+//	lapicw(LINT0, MASKED);
         lapicw(LINT1, MASKED);
 
         // Disable performance counter overflow interrupts

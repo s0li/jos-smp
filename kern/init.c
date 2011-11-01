@@ -50,15 +50,18 @@ i386_init(void)
 
 	// ------------------------------------------------------------
 	// xv6 smp code
-       		
+
 	// right now this code must be after i386_detect_memory() because
 	// we use KADDR which depends on npage var
 	mpinit();  // collect info about this machine
+	thisCPU = &cpus[cpunum()];
+	
+	cprintf("(i386_init) bcpu = %x\n", bcpu);
 	
 	lapicinit(mpbcpu()); // Local APIC
 	ioapicinit();        // IO APIC
 
-	cprintf("lapic = %x\n", lapic);
+	cprintf("(i386_init) lapic = %x\n", lapic);
 	// ------------------------------------------------------------
 
 
@@ -71,7 +74,6 @@ i386_init(void)
 //	kclock_init();
 	if (ncpu > 1)
 		bootothers();
-	thisCPU = &cpus[cpunum()];
 
 	/* int k = 0; */
 	/* while (1) { */
@@ -80,6 +82,9 @@ i386_init(void)
 	/* } */
 	
 	// Should always have an idle process as first one.
+	extern uint8_t _binary_obj_user_idle_start[];
+	cprintf("(i386_init) idle addr = %x\n", _binary_obj_user_idle_start);
+
 	ENV_CREATE(user_idle);
 //	ENV_CREATE(user_primes);
 
