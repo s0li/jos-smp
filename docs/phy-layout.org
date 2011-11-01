@@ -1,0 +1,45 @@
++------------------+  <- 0xFFFFFFFF (4GB)
+|      32-bit      |
+|  memory mapped   |
+|     devices      |
+|                  |
+/\/\/\/\/\/\/\/\/\/\
+
+/\/\/\/\/\/\/\/\/\/\
+|                  |
+|      Unused      |
+|                  |
++------------------+  <- depends on amount of RAM
+|                  |
+|                  |
+| Extended Memory  |
+|                  |
+|                  |
++------------------+  <- 0x00100000 (1MB)
+|     BIOS ROM     |
++------------------+  <- 0x000F0000 (960KB)
+|  16-bit devices, |
+|  expansion ROMs  |
++------------------+  <- 0x000C0000 (768KB)
+|   VGA Display    |
++------------------+  <- 0x000A0000 (640KB)
+|                  |
+|    Low Memory    |
+|                  |
++------------------+  <- 0x00000000
+
+- The 640KB area marked "Low Memory" was the only random-access memory
+  (RAM) that an early PC could use.
+- The 384KB area from 0x000A0000 through 0x000FFFFF was reserved by
+  the hardware for special uses such as video display buffers and
+  firmware held in non-volatile memory. 
+- The most important part of this reserved area is the Basic
+  Input/Output System (BIOS), which occupies the 64KB region from
+  0x000F0000 through 0x000FFFFF.
+
+- Modern PCs therefore have a "hole" in physical memory from
+  0x000A0000 to 0x00100000, dividing RAM into "low" or "conventional
+  memory" (the first 640KB) and "extended memory" (everything
+  else). In addition, some space at the very top of the PC's 32-bit
+  physical address space, above all physical RAM, is now commonly
+  reserved by the BIOS for use by 32-bit PCI devices.

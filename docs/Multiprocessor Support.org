@@ -1,0 +1,40 @@
+* Multiprocessor Support
++ The bootstrap processor (BSP) is responsible for initializing the
+  system and for booting the operating system; and the application
+  processors (APs) are activated by the BSP only after the operating
+  system is up and running. 
+  Which processor is the BSP is determined by the hardware and the
+  BIOS.
+
+** LAPIC
++ In an SMP system, each CPU has an accompanying local APIC (LAPIC)
+  unit. The LAPIC units are responsible for delivering interrupts
+  throughout the system. 
++ The LAPIC also provides its connected CPU with a unique
+  identifier. 
++ In this lab, we make use of the following basic
+  functionality of the LAPIC unit (in kern/lapic.c):
++ A processor accesses its LAPIC using memory-mapped I/O (MMIO).
++ The LAPIC lives in a hole starting at physical address 0xFE000000
+  (32MB short of 4GB),
+
+** per-CPU
++ kernel stack
++ TSS and TSS descriptor
++ 'current env' pointer
++ system registers
++ idle env
+
+** Interrupt Discipline
++ External interrupts (i.e., device interrupts) are referred to as
+  IRQs. There are 16 possible IRQs, numbered 0 through 15.
++ External interrupts are controlled by the FL_IF flag bit of the
+  %eflags register (see [[file:~/muli-project/jos-smp/inc/mmu.h][inc/mmu.h]])
++ Interrupts were disabled with the very first instruction of the
+  bootloader.
++ The calls to *lapic_init* and *pic_init* (from [[file:~/muli-project/jos-smp/kern/init.c][i386_init in init.c]]),
+  set up the clock and the interrupt controller to generate
+  interrupts.  
+  pic_init is identical in the MIT code to ours, so the timer setup
+  must occur in lapic_init.
+  

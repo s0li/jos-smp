@@ -57,13 +57,14 @@ i386_init(void)
 	
 	lapicinit(mpbcpu()); // Local APIC
 	ioapicinit();        // IO APIC
-	
+
+	cprintf("lapic = %x\n", lapic);
 	// ------------------------------------------------------------
 
 
 	// Lab 4 multitasking initialization functions
 	// TODO is this really needed with the ioapic enabled?
-//	pic_init();
+	pic_init();
 	
 	// the kclock init isn't needed anymore beacuse we init the
 	//clock tick in lapicinit
@@ -71,11 +72,17 @@ i386_init(void)
 	if (ncpu > 1)
 		bootothers();
 	thisCPU = &cpus[cpunum()];
+
+	/* int k = 0; */
+	/* while (1) { */
+	/* 	if (k++ % 10000000 == 0) */
+	/* 		cprintf("cpu%d reporting in\n", thisCPU->id); */
+	/* } */
 	
 	// Should always have an idle process as first one.
 	ENV_CREATE(user_idle);
-	ENV_CREATE(user_yield);
-	
+//	ENV_CREATE(user_primes);
+
 	// Start fs.
 	// TODO enable this fucker after playing with mpinit
 //	ENV_CREATE(fs_fs);
@@ -164,6 +171,7 @@ ap_init(void)
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up
 //        scheduler();     // start running processes
+
 	int k = 0;
 	while(1) {
 		if (k++ % 10000000 == 0)

@@ -13,7 +13,9 @@ umain(void)
 	// a better way would be to use the processor's HLT instruction
 	// to cause the processor to stop executing until the next interrupt -
 	// doing so allows the processor to conserve power more effectively.
+	int i = 0;
 	while (1) {
+		cprintf("hello from user land\n");
 		sys_yield();
 
 		// Break into the JOS kernel monitor after each sys_yield().

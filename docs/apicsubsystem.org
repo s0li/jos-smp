@@ -1,0 +1,275 @@
+Reload Original PagePrint PageEmail Page
+
+NOTE: this paper describes the PRE PEND_INTS algorithm code.
+      it will be updated once PEND_INTS is finalized.
+
+======================================================================
+
+		A Description of the APIC I/O Subsystem
+		    Copyright (c) 1997 Steve Passe
+
+The implementation of symmetric I/O in the FreeBSD SMP kernel is based
+upon the Intel(tm) Advanced Programmable Interrupt Controller (APIC).
+This part is used as a replacement for the functionality of the 8259
+ICUs used in traditional PCs.  For a complete description of the
+hardware aspects of a motherboard using APICs see [Intel MP spec, 1].
+
+
+
+-------------
+Introduction:
+
+The APIC differs from an (8259) ICU in several aspects.  The most notable
+is its support for distributed CPUs.  This is accomplished with
+its bus structure:  there are multiple APICs on a motherboard, all connected
+via a private APIC bus.  Each CPU has an APIC, refered to as a "LOCAL APIC".
+A motherboard has at least one APIC that is refered to as an "IO APIC".
+
+External hardware INTerrupt sources are routed to pins of the IO APIC.
+These include motherboard sources such as the 8254 timer, as well as
+ISA/PCI card slots.  INTerrupts are "collected" by this part, and
+forwarded via the APIC bus to one or more CPUs when they occur.
+
+A class of interrupt known as an InterProcessor Interrupt (IPI) is also
+supported.  The IPI is a method for 1 CPU to directly send an INTerrupt
+"message" to one or more CPUs, including itself.
+
+
+
+---------
+The Code:
+
+All the APIC specific code (except a small portion of mandatory setup code)
+is bracketed in the source with "#ifdef APIC_IO / #if defined(APIC_IO)".
+It was kept separate from SMP specific code in anticipation that the APIC
+may someday become common on UP motherboards as it supports more INTs than
+the standard pair of 8259 ICUs.  It is enabled by adding "options APIC_IO"
+to a kernel config file.  It has only been tested in the context of an
+SMP enabled kernel, and probably would fail to work if used on its own.
+
+The primary files implementing APIC support are:
+
+ - /sys/i386/include/apic.h:
+	register defines, etc.
+
+ - /sys/i386/include/mpapic.h:
+	header file for mpapic.c.
+	defualt defines, macros.
+	inline functions.
+
+ - /sys/i386/i386/mpapic.c:
+	APIC specific functions:
+	  IO APIC initialization.
+	  low-level Inter Process Interrupt (IPI) functions.
+	  INTerrupt mask functions (for IO APIC).
+
+ - /sys/i386/i386/mp_machdep.c:
+	LOCAL APIC setup.
+	parsing of the motherboard MP table.
+	vm mapping of LOCAL/IO APICs.
+	utility functions for the "APIC sub-system":
+	  functions that return "device to INTerrupt" associations, etc.
+	functions that install/enable MP bootstrap code..
+	functions that startup the Application Processors (APs).
+	TLB invalidation IPI functions.
+
+
+---------------
+Boottime Setup:
+
+During boot, in init386(), the function mp_start() is called.  mp_start()
+looks for and (if found) parses the MP table provided by the motherboard.
+If the MP table is good, or a "default" configuration is found, it calls
+mp_enable, if not it panics().
+
+If APIC_IO is enabled, mp_enable() programs the APIC sub-system.  This
+includes the programming of individual IO APIC registers, as well as setting
+the appropriate vectors in the kernel Interrupt Descriptor Table (IDT).
+
+mp_enable finishes by installing bootstrap code for the Application Processors
+(APs) and starting them up.  Each AP bootstraps itself to an initial run state
+and then blocks on a lock that will later be released by code in init_smp.c.
+
+
+
+---------------------
+INTerrupt Management:
+
+The APIC sub-system attempts to steer INTerrupts to CPUs as appropriate
+for efficient kernel operation.  In general this means sending hardware
+INTerrupts from the IO APIC to the CPU most able to service the INTerrupt.
+Once we have fine-grained locking (for this discussion I'm refering to
+one lock per INTerrupt source) this will mean the CPU operating at the
+lowest priority level.  As long as we use the current "giant-lock" model
+we are stuck with a different algorithm.
+
+Specifically this means sending the INTerrupt to the CPU currently holding
+the lock, as any other CPU would just "busy-spin" waiting to get the lock.
+We attempt to enforce this behaviour by using the Task Priority Register
+(TPR) to keep all CPUs at an arbitrary "middle level priority".  When a
+CPU acquires the lock it sets its TPR to a lower priority, making it
+the first candidate for receiving INTerrupts from the IO APIC.
+This works in the case where a CPU holds the lock as a result of a system
+call/trap, but FAILS when it holds the lock as a result of being in an
+INTerrupt Service Routine (ISR).  This is because the Processor Priority
+Register (PPR) is set to the HIGHER of the TPR and the In Service Register
+Vector (ISVR).  Thus when servicing an INT, the CPU's PPR is bumped up from
+the TPR setting to the priority of the highest ISR bit.  For more info
+see [PPro Devel Manual, 2]
+
+
+
+------------------
+Future Directions:
+
+When "fine-grained" locking is achieved the above algorithm will be changed.
+Details are still being determined, but essentually we will let the APICs
+behave as they were designed to, ie. let INTerrupts be delived according to
+the basic hardware priority algorithms, without attempting to fool them
+with the current "lower my priority" scheme.
+
+An IO APIC has 16 (Neptune) or 24 (Triton/Natoma) distinct channels.  We
+currently map the traditional IRQ0-IRQ15 INTs to the IDT vectors from
+32 thru 47, an the additional APIC INT sources (IRQ16-IRQ23) to the
+following 8 IDT entries.  As discussed previously [PPro Devel Manual, 1]
+the 240 supported vectors (16 thru 255) are grouped by 16:
+
+  priority = vector / 16
+
+This dense grouping invites deadlock thru LOCAL APIC fifo saturation.
+It also is a performance bottleneck.  The future design will spread out
+the ISRs thru all the 240 available IDT vectors.  Ideally this would include
+a guarantee that no more than 2 vectors (2 deep fifo) are assigned to any
+one "slot".  We have only 13 available slots:
+
+	240 / 16 == 15 slots
+		   - 1 slot used by the linux syscall
+		   - 1 slot at the top which is "uninterruptable"
+		    --
+		    13 available slots
+
+Since we need 1 or 2 slots for the exclusive use of IPIs, we will probably
+have about 10 slots left for hardware INTs.  There may be
+some grouping along the line of swi_tty, swi_net, _softclock, swi_ast.
+We might also group all network cards in one slot, all sio INTS in another,
+etc.
+
+The code in vector.s, as well as portions of icu.[ch], will be abandoned
+and APIC specific functionality rewritten from the ground up.  vector.s
+will continue to exist, both for the UP kernel, as well as "mixed-mode"
+programming.  The details for achieving this are as yet undefined.
+
+It is envisioned that a scheme for boot-time modification of the APIC ISR
+functions may be used as oppossed to the MACRO model used in vector.s.
+
+
+---
+There will be a set of "per-CPU" pages that allow each CPU to have a "private"
+copy of certain variables.  For example 'my_id' would be the CPU's logical
+APIC id.  This eliminates the need to "read APIC_ID, shift, mask, convert"
+to determine which CPU we are.  This affects everyplace that currently uses
+cpunumber()/GETCPUID to do this.
+
+ _curproc etc will move into the private pages as well, along with the
+local run queues, _curpcb, _runtime, the clock variables, etc.  The big
+"schedule" routine would be responsible for placing processes in each cpu's
+local run queue.  This supports pid to particular processor binding and
+making processes "prefer" a particular cpu in the normal case.  (It won't 
+cause one cpu to be overloaded and another run idle, because the idle one 
+will cause a reschedule.. the rescedule can factor in a "cost" of moving a 
+process from one cpu to another.)
+
+Mapping of the LOCAL/IO APICs at "known" virtual addresses.  
+This will simplify code from:
+
+	movl	_apic_base, %ecx	/* - get cpu# */
+	movl	APIC_ID(%ecx), %ecx
+to:
+	movl	$_apic_base + APIC_TPR, %ecx
+
+in many places.  It will allow c code to change from:
+
+extern volatile u_int*          apic_base;
+
+	id = apic_base[APIC_ID];
+	io0id = io_apic_base[APIC_ID];
+to:
+
+extern volatile local_apic_t	*local_apic;
+extern volatile io_apic_t	*io_apic[NAPIC];
+
+	id = local_apic->id;
+	io0id = io_apic[0]->id;
+
+
+-------
+Fubars:
+
+The Intel MP spec is fairly "loose" in many places.  It provides
+support for older Intel parts at the cost of "design elegance".
+Many vendors fail to adhere to the details of the specification.
+All of these facts make parsing/using the MP table a real pain!
+
+An edge triggered (ie ISA) INTerrupt that occurs while it is masked in the
+IO APIC is LOST!  For details see [82489DX APIC, 1].  To deal with this
+we use "lazy masking" where an INTerrupt is left unmasked on the first
+occurrance, only being masked if it re-occurs while servicing/pending
+the 1st occurance.
+
+Some motherboards do NOT connect the 8254 timer to the IO APIC.  The MP
+spec allows this (see above comments on the spec) since it is impossible
+to get this signal "off-chip" on some chipsets.  This is dealt with by
+using what is refered to as "mixed-mode" programming.  Essentially this
+involves routing the lower 8259 ICU INTR out to IRQ0 of the IO APIC.
+The IO APIC is then programmed to expect an external device (ExtInt in
+MP spec terminology) on that pin.  When an INTerrupt is received via this
+channel the IO APIC does the IntAck dance with the 8259 to fetch the vector.
+The end result is that timer INTs are "noticed" by the traditional 8259,
+and then passed thru the IO APIC's IRQ0 pin.  The real fubar is that some
+motherboards show the 8254 timer connected directly to the APIC, when in 
+reality IT IS NOT!  This is dealt with as a "rogue hardware" situation
+and requires the use of "options SMP_TIMER_NC" in the kernel config file
+to inform the kernel to take corrective action.
+
+There is a 2-deep fifo per priority level for received INTerrupts in the
+LOCAL APICs.  This means that it is possible for deadlocks to occur from the
+inability to deliver an INT because a fifo is full.  Careful programming
+can solve this problem, the details of which will be covered elsewhere.
+For details see [PPro Devel Manual, 1].
+
+
+
+-------------------------------------------------------------------------------
+References:
+
+---
+Intel MP spec, 1:
+	Intel MultiProcessor Specification version 1.4, July 1995
+	section 3.6: Multiprocessor Interrupt Control
+
+---
+82489DX APIC, 1:
+	Intel486 Microprocessors and Related Products
+	ISBN 1-55512-235-3
+	82489DX Advanced Programmable Interrupt Controller
+	Consideration 5, page 4-302
+
+---
+PPro Devel Manual, 1:
+	Pentium Pro Family Developer's Manual
+	ISBN 1-55512-261-2
+	Multiple Processor Management
+	section 7.4.2: Valid Interrupts.
+-
+PPro Devel Manual, 2:
+	Multiple Processor Management
+	section 7.4.10.2/3: Task Priority Reg. / Processor Priority Reg.
+	
+---
+
+
+Devices
+Sign Up & Read Comfortably—Anytime, Anywhere
+
+A subscription to Readability offers great features for mobile reading, saving
+articles for later and supporting the writers you enjoy. Learn More Â»

@@ -1,0 +1,7 @@
+* Questions, motherfucker
++ [[file:~/muli-project/jos-smp/kern/entry.S][kern/entry.S]]: 
+  movw $0x1234,0x472 # warm boot 
+  how does this relate to a warm boot? Do we check this value sometime
+  later to see if the OS was run before when booting?
+
++ What is the TSS?

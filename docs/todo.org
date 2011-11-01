@@ -1,0 +1,7 @@
+* Progress [0/3]
++ [ ] figure out how to program the IOAPIC to send interrupts to
+      differnet CPUs.
++ [ ] create git rep serv on home/t2
++ [ ] lapic.c - in the init function change it to be like the MIT
+      version and leave the LINT0 line enabled to be able to get
+      interrupts from the PIC chip.

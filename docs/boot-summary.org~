@@ -1,0 +1,79 @@
+* BIOS
+  - The IBM PC starts executing at physical address 0x000ffff0.
+  - The first instruction to be executed is a jmp instruction.
+
+  - When the BIOS runs, it sets up an interrupt descriptor table and
+    initializes various devices such as the VGA display.
+  
+  - After initializing the PCI bus and all the important devices the
+    BIOS knows about, it searches for a bootable device such as a
+    floppy, hard drive, or CD-ROM. Eventually, when it finds a
+    bootable disk, the BIOS reads the boot loader from the disk and
+    transfers control to it.
+
+* Boot Loader
+  - When the BIOS finds a bootable floppy or hard disk, it loads the
+    512-byte boot sector into memory at physical addresses 0x7c00
+    through 0x7dff, and then uses a jmp instruction to set the CS:IP
+    to 0000:7c00, passing control to the boot loader.
+
+  - The boot loader consists of one assembly language source file,
+    [[../boot/boot.S][boot/boot.S]], and one C source file, [[../boot/main.c][boot/main.c]] boot/main.
+
+  - The boot loader must perform two main functions:
+       1. switches the processor from real mode to 32-bit protected
+          mode.  
+       2. reads the kernel from the hard disk by directly accessing
+          the IDE disk device registers via the x86's special I/O
+          instructions.
+
+* Loading the Kernel
+** ELF
+   [[file:~/muli-project/jos-smp/inc/elf.h][inc/elf.h]]
+
+   To make sense out of [[file:~/muli-project/jos-smp/boot/main.c][boot/main.c]] you'll need to know what an *ELF*
+   binary is. When you compile and link a C program such as the JOS
+   kernel, the compiler transforms each C source ('.c') file into an
+   object ('.o') file containing assembly language instructions encoded
+   in the binary format expected by the hardware. The linker then
+   combines all of the compiled object files into a single binary image
+   such as obj/kern/kernel, which in this case is a binary in the ELF
+   format, which stands for "Executable and Linkable Format".
+
+   You can consider an ELF executable to be a header with loading
+   information, followed by several program sections, each of which is a
+   contiguous chunk of code or data intended to be loaded into memory at
+   a specified address.
+
+   + */.text/* : The program's executable instructions.  
+   + */.rodata/* : Read-only data, such as ASCII string constants
+     produced by the C compiler. (We will not bother setting up the
+     hardware to prohibit writing, however.)
+   + */.data/* : The data section holds the program's initialized
+     data, such as global variables declared with initializers like
+     int x = 5;.
+
+     reserves space for uninitialized global variables, such as int x;, in
+     a section called .bss that immediately follows .data in memory. C
+     requires that "uninitialized" global variables start with a value of
+     zero.
+
+   + Examine the full list of the names, sizes, and link addresses of all
+     the sections in the kernel executable by typing:
+
+     _athena% i386-jos-elf-objdump -h obj/kern/kernel_
+
+   + VMA = link address. The link address of a section is the memory
+     address from which the section expects to execute.
+   + LMA = load address. 
+
+* The Kernel
+  + Link addr = 1Meg, Load addr = [[file:~/muli-project/jos-smp/inc/memlayout.h][KERNBASE]] + 1Meg
+
+
+
+
+
+
+
+  

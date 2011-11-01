@@ -1,0 +1,17 @@
+* Motherboard Chipsets and the Memory Map
+#+CAPTION: Diagram for modern motherboard. The northbridge and
+#+CAPTION: southbridge make up the chipset.
+[[./img/motherboardDiagram.png]]
+ 
++ There are three main ways by which the CPU and the outside
+  communicate: 
+  1. memory address space,
+  2. I/O address space, and 
+  3. interrupts.
+
++ In 64-bit mode it is possible to use physical addresses above the
+  total RAM in the system to access the RAM regions that correspond to
+  physical addresses stolen by motherboard devices. This is called
+  reclaiming memory and it’s done with help from the chipset.
+
+

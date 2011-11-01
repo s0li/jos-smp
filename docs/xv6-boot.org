@@ -1,0 +1,19 @@
+* XV6 boot process motherfucker
+/This describes the function calls and general overview of what xv6/
+/does from bios tofirst running process/
+
+** BIOS
+** bootasm.S:
+- Disables interrupts
+- Setup DS, ES, SS
+- enable A20
+- switch from real to protected mode (GDT mappings are direct)
+- call into bootmain
+*** bootmain.c:
+- load kernel image and jump into main.c:main()
+** main.c:
+- detects MP
+- inits local apics (the timer tick initialized here)
+- init segments (??)
+- 
+

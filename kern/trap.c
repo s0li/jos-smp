@@ -104,7 +104,7 @@ idt_init(void)
 	extern void irq13_handler();
 	extern void irq14_handler();
 	extern void irq15_handler();
-	
+
 	SETGATE(idt[T_DIVIDE],  0, GD_KT, routine_divide,  0);
 	SETGATE(idt[T_DEBUG],   0, GD_KT, routine_debug,   0);
 	SETGATE(idt[T_NMI],     0, GD_KT, routine_nmi,     0);
@@ -142,7 +142,7 @@ idt_init(void)
 	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, irq13_handler, 0);
 	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, irq14_handler, 0);
 	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, irq15_handler, 0);
-
+	
 	tss_init_percpu();
 }
 
@@ -220,6 +220,7 @@ trap_dispatch(struct Trapframe *tf)
 		return;
 
 	case IRQ_OFFSET + IRQ_TIMER:
+		cprintf("timer interrupt\n");
 		sched_yield();
 		return;
 	case IRQ_OFFSET + IRQ_SPURIOUS:
