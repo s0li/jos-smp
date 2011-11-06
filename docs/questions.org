@@ -5,3 +5,6 @@
   later to see if the OS was run before when booting?
 
 + What is the TSS?
+
++ How are the keyboard interrupts are handled and where? Generally speaking, how
+  does the console work?

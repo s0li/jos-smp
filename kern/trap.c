@@ -151,7 +151,7 @@ void
 tss_init_percpu(void) {
 	int cpuid = cpunum();
 	
-	thisCPU = &cpus[cpuid];
+//	thisCPU = &cpus[cpuid];
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	thisCPU->ts.ts_esp0 = (uintptr_t)kstacks[cpuid] + KSTKSIZE;

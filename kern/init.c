@@ -46,6 +46,9 @@ i386_init(void)
 	
 	// Lab 3 user environment initialization functions
 	env_init();
+//	cprintf("(i386_init) cpus = %x, cpunum() = %d\n", cpus, cpunum());
+	thisCPU = &cpus[cpunum()];
+		
 	idt_init();
 
 	// ------------------------------------------------------------
@@ -54,14 +57,13 @@ i386_init(void)
 	// right now this code must be after i386_detect_memory() because
 	// we use KADDR which depends on npage var
 	mpinit();  // collect info about this machine
-	thisCPU = &cpus[cpunum()];
 	
-	cprintf("(i386_init) bcpu = %x\n", bcpu);
+//	cprintf("(i386_init) bcpu = %x\n", bcpu);
 	
 	lapicinit(mpbcpu()); // Local APIC
 	ioapicinit();        // IO APIC
 
-	cprintf("(i386_init) lapic = %x\n", lapic);
+//	cprintf("(i386_init) lapic = %x\n", lapic);
 	// ------------------------------------------------------------
 
 
@@ -85,6 +87,7 @@ i386_init(void)
 	extern uint8_t _binary_obj_user_idle_start[];
 	cprintf("(i386_init) idle addr = %x\n", _binary_obj_user_idle_start);
 
+	thisCPU->booted = 1;
 	ENV_CREATE(user_idle);
 //	ENV_CREATE(user_primes);
 
@@ -176,12 +179,15 @@ ap_init(void)
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up
 //        scheduler();     // start running processes
+	sched_yield();
 
 	int k = 0;
-	while(1) {
-		if (k++ % 10000000 == 0)
-			cprintf("--- cpu%d reporting in ---\n", cpunum());
-	}
+	while(1) { if (k++ == 1) cprintf("(ap_init) ap entered while(1)\n"); }
+	/* int k = 0; */
+	/* while(1) { */
+	/* 	if (k++ % 10000000 == 0) */
+	/* 		cprintf("--- cpu%d reporting in ---\n", cpunum()); */
+	/* } */
 }
 
 /*

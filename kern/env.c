@@ -432,8 +432,8 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
-	cprintf("(env_pop_tf) ULIM = %x\n", ULIM);
-	cprintf("(env_pop_tf) eip = %x\n", tf->tf_eip);
+//	cprintf("(env_pop_tf) ULIM = %x\n", ULIM);
+//	cprintf("(env_pop_tf) eip = %x\n", tf->tf_eip);
 	__asm __volatile("movl %0,%%esp\n"
 		"\tpopal\n"
 		"\tpopl %%es\n"

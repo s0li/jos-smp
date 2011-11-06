@@ -5,7 +5,6 @@
 #include <inc/mmu.h>
 
 #include <kern/smp-params.h>
-#include <kern/mp.h>
 #include <kern/lapic.h>
 
 // Per-CPU state

@@ -19,7 +19,7 @@ pic_init(void)
 	// mask all interrupts
 	outb(IO_PIC1+1, 0xFF);
 	outb(IO_PIC2+1, 0xFF);
-
+	
 	// Set up master (8259A-1)
 
 	// ICW1:  0001g0hi
