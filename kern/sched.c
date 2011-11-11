@@ -60,12 +60,12 @@ sched_yield_smp(void)
 	int curenv_indx, i;
 	int low_id, high_id;
 
-	curenv_indx = (curenv == NULL) ? 0 : ENVX(curenv->env_id);
+	curenv_indx = (curenv == NULL) ? (thisCPU->id * NENV_PER_CPU) : ENVX(curenv->env_id);
 
 	low_id = thisCPU->id * NENV_PER_CPU;
 	high_id = (thisCPU->id + 1) * NENV_PER_CPU - 1;
-	cprintf("(sched_yield_smp) cpu%d, lowid = %d, highid = %d\n", thisCPU->id, low_id, high_id);
-
+//	cprintf("(sched_yield_smp) cpu%d, lowid = %d, highid = %d\n", thisCPU->id, low_id, high_id);
+	
 #define increment_id(x)		(((x + 1) % (high_id + 1)) == 0 ? low_id : x + 1)
 	
 	for (i = increment_id(curenv_indx); i != curenv_indx; i = increment_id(i)) {

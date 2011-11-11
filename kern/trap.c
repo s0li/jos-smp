@@ -222,9 +222,15 @@ trap_dispatch(struct Trapframe *tf)
 		return;
 
 	case IRQ_OFFSET + IRQ_TIMER:
-		cprintf("timer interrupt\n");
+//		cprintf("timer interrupt\n");
 //		sched_yield();
 		sched_yield_smp();
+		return;
+	case IRQ_OFFSET + IRQ_KBD:
+		kbd_intr();
+		return;
+	case IRQ_OFFSET + IRQ_SERIAL:
+		serial_intr();
 		return;
 	case IRQ_OFFSET + IRQ_SPURIOUS:
 		// Handle spurious interrupts

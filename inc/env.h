@@ -41,6 +41,7 @@ typedef int32_t envid_t;
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	LIST_ENTRY(Env) env_link;	// Free list link pointers
+	LIST_ENTRY(Env) env_link_smp;	// Free list for runq
 	envid_t env_id;			// Unique environment identifier
 	envid_t env_parent_id;		// env_id of this env's parent
 	unsigned env_status;		// Status of the environment

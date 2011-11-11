@@ -87,19 +87,21 @@ i386_init(void)
 
 	thisCPU->booted = 1;
 
-	unlock_kernel();
-	while (1)
-		;
+	/* unlock_kernel(); */
+	/* while (1) */
+	/* 	; */
 	
 //	ENV_CREATE(user_idle);
 	ENV_CREATE_ONCPU(user_idle, thisCPU->id);
 
+	ENV_CREATE_ONCPU(user_smp_test, thisCPU->id);
 	
 //	ENV_CREATE(user_primes);
 
 	// Start fs.
-	// TODO enable this fucker after playing with mpinit
+	// Currently the file system server will run on cpu0
 //	ENV_CREATE(fs_fs);
+//	ENV_CREATE_ONCPU(fs_fs, 
 
 	// this is a sanity check for the scheduler
 	/* ENV_CREATE(user_yield); */
@@ -184,6 +186,7 @@ ap_init(void)
 	// ----------------------------------------
 
 	ENV_CREATE_ONCPU(user_idle, thisCPU->id);
+	ENV_CREATE_ONCPU(user_smp_test, thisCPU->id);
 
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up

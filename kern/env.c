@@ -99,7 +99,7 @@ env_init_percpu(void)
 		thisCPU->runq.l_envs[i].env_status = ENV_FREE;
 		LIST_INSERT_HEAD(&(thisCPU->runq.l_env_free_list),
 				 &(thisCPU->runq.l_envs[i]),
-				 env_link);
+				 env_link_smp);
 	}
 }
 
@@ -291,7 +291,7 @@ env_alloc_oncpu(struct Env **newenv_store, envid_t parent_id, int cpuid)
 		e->env_tf.tf_eflags |= FL_IOPL_3;
 
 	// commit the allocation
-	LIST_REMOVE(e, env_link);
+	LIST_REMOVE(e, env_link_smp);
 	*newenv_store = e;
 
 	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
@@ -502,6 +502,9 @@ env_free(struct Env *e)
 	// return the environment to the free list
 	e->env_status = ENV_FREE;
 	LIST_INSERT_HEAD(&env_free_list, e, env_link);
+	
+	// SMP
+	LIST_INSERT_HEAD(&(thisCPU->runq.l_env_free_list), e, env_link_smp);
 }
 
 //

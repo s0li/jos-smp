@@ -486,6 +486,12 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+static int
+sys_getcpuid(void)
+{
+	return thisCPU->id;
+}
+
 
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
@@ -540,6 +546,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		break;
 	case SYS_env_set_trapframe:
 		errno = sys_env_set_trapframe((envid_t)a1, (struct Trapframe*)a2);
+		break;
+	case SYS_getcpuid:
+		errno = sys_getcpuid();
 		break;
 			
 	default:
