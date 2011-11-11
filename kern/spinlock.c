@@ -3,6 +3,14 @@
 
 #include <kern/spinlock.h>
 
+#include <kern/cpu.h>
+#include <kern/mp.h>
+
+// The big kernel lock
+struct Spinlock kernel_lock = {
+	.name = "kernel_lock"
+};
+
 void
 lock_kernel(void)
 {

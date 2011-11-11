@@ -35,6 +35,9 @@ typedef int32_t envid_t;
 #define ENV_RUNNABLE		1
 #define ENV_NOT_RUNNABLE	2
 
+// SMP
+#define ENV_RUNNING		3
+
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	LIST_ENTRY(Env) env_link;	// Free list link pointers

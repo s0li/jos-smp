@@ -11,7 +11,9 @@ struct Spinlock {
 	// For debugging:
         char *name;        // Name of lock.
         struct CPU *cpu;   // The cpu holding the lock.
-        uint pcs[10];      // The call stack (an array of program counters)
+
+	// pcs is currently no implemented TODO
+        uint pcs[10];      // The call stack (an array of program counters) 
         // that locked the lock.
 };
 
@@ -20,7 +22,7 @@ void spinlock_init(struct Spinlock *lk, char *name);
 void spinlock_acquire(struct Spinlock *lk);
 void spinlock_release(struct Spinlock *lk);
 
-struct Spinlock kernel_lock;   // TODO - intialize the fucker in vm_init or smthn
+extern struct Spinlock kernel_lock;
 
 void lock_kernel(void);
 void unlock_kernel(void);

@@ -12,6 +12,9 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
+#include <kern/cpu.h>
+#include <kern/mp.h>
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -64,7 +67,8 @@ sys_env_destroy(envid_t envid)
 static void
 sys_yield(void)
 {
-	sched_yield();
+//	sched_yield();
+	sched_yield_smp();
 }
 
 // Allocate a new environment.
@@ -475,7 +479,8 @@ sys_ipc_recv(void *dstva)
 	curenv->env_status = ENV_NOT_RUNNABLE;
 	curenv->env_tf.tf_regs.reg_eax = 0;
 	
-	sched_yield();
+//	sched_yield();
+	sched_yield_smp();
 
 	// placate the compiler
 	return 0;

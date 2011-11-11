@@ -6,6 +6,7 @@
 
 #include <kern/smp-params.h>
 #include <kern/lapic.h>
+#include <kern/runqueue.h>
 
 // Per-CPU state
 struct CPU {
@@ -22,14 +23,15 @@ struct CPU {
         // Cpu-local storage variables; see below
 //        struct CPU *thisCPU;
 //      struct proc *proc;           // The currently-running process.
-	struct Env* cur_env;
+//	struct Env* cur_env;	// moved to runqueue
 	struct Taskstate ts;           // Used by x86 to find stack
 	                               // for interrupt
+	
+	struct Runqueue runq;
 };
 
-//extern struct cpu cpus[NCPU];
-//#define thiscpu (&cpus[cpunum()])
 
-struct CPU *thisCPU;       // &cpus[cpunum()]
+#define thisCPU		(&cpus[cpunum()])
+#define curenv 		(thisCPU->runq.l_curenv)
 
 #endif // __CPU_H__

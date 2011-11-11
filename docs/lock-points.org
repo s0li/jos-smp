@@ -1,0 +1,10 @@
+In i386_init(), acquire the lock before the BSP wakes up the other CPUs.
+
+In mp_main(), acquire the lock after initializing the AP, and then call
+sched_yield() to start running environment s on this AP.
+
+In trap(), acquire the lock when trapped from user mode. To determine whether a
+trap happened in user mode or in k ernel mode, check the low bits of the tf_cs.
+
+In env_run(), release the lock right before switching to user mode. Do not do
+that too early or too late, otherwis e you will experience races or deadlocks.

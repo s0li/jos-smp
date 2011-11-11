@@ -13,8 +13,12 @@
 #include <kern/monitor.h>
 #include <kern/sched.h>
 
+#include <kern/mp.h>
+#include <kern/spinlock.h>
+
 struct Env *envs = NULL;		// All environments
-struct Env *curenv = NULL;		// The current env
+/* curenv turned into a macro defined in kern/env.h */
+//struct Env *curenv = NULL;		// The current env
 static struct Env_list env_free_list;	// Free list
 
 #define ENVGENSHIFT	12		// >= LOGNENV
@@ -81,6 +85,21 @@ env_init(void)
 		envs[i].env_id = 0;
 		envs[i].env_status = ENV_FREE;
 		LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
+	}
+	env_init_percpu();
+}
+
+void
+env_init_percpu(void)
+{
+	int i;
+	LIST_INIT(&(thisCPU->runq.l_env_free_list));
+	for (i = NENV_PER_CPU - 1; i >= 0; --i) {
+		thisCPU->runq.l_envs[i].env_id = 0;
+		thisCPU->runq.l_envs[i].env_status = ENV_FREE;
+		LIST_INSERT_HEAD(&(thisCPU->runq.l_env_free_list),
+				 &(thisCPU->runq.l_envs[i]),
+				 env_link);
 	}
 }
 
@@ -155,6 +174,72 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	struct Env *e;
 
 	if (!(e = LIST_FIRST(&env_free_list)))
+		return -E_NO_FREE_ENV;
+
+	// Allocate and set up the page directory for this environment.
+	if ((r = env_setup_vm(e)) < 0)
+		return r;
+
+	// Generate an env_id for this environment.
+	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
+	if (generation <= 0)	// Don't create a negative env_id.
+		generation = 1 << ENVGENSHIFT;
+	e->env_id = generation | (e - envs);
+	
+	// Set the basic status variables.
+	e->env_parent_id = parent_id;
+	e->env_status = ENV_RUNNABLE;
+	e->env_runs = 0;
+
+	// Clear out all the saved register state,
+	// to prevent the register values
+	// of a prior environment inhabiting this Env structure
+	// from "leaking" into our new environment.
+	memset(&e->env_tf, 0, sizeof(e->env_tf));
+
+	// Set up appropriate initial values for the segment registers.
+	// GD_UD is the user data segment selector in the GDT, and 
+	// GD_UT is the user text segment selector (see inc/memlayout.h).
+	// The low 2 bits of each segment register contains the
+	// Requestor Privilege Level (RPL); 3 means user mode.
+	e->env_tf.tf_ds = GD_UD | 3;
+	e->env_tf.tf_es = GD_UD | 3;
+	e->env_tf.tf_ss = GD_UD | 3;
+	e->env_tf.tf_esp = USTACKTOP;
+	e->env_tf.tf_cs = GD_UT | 3;
+	// You will set e->env_tf.tf_eip later.
+
+	// Enable interrupts while in user mode.
+	// LAB 4: Your code here.
+	e->env_tf.tf_eflags = FL_IF;
+
+	// Clear the page fault handler until user installs one.
+	e->env_pgfault_upcall = 0;
+
+	// Also clear the IPC receiving flag.
+	e->env_ipc_recving = 0;
+
+	// If this is the file server (e == &envs[1]) give it I/O privileges.
+	// LAB 5: Your code here.
+	if (e == &envs[1])
+		e->env_tf.tf_eflags |= FL_IOPL_3;
+
+	// commit the allocation
+	LIST_REMOVE(e, env_link);
+	*newenv_store = e;
+
+	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	return 0;
+}
+
+int
+env_alloc_oncpu(struct Env **newenv_store, envid_t parent_id, int cpuid)
+{
+	int32_t generation;
+	int r;
+	struct Env *e;
+
+	if (!(e = LIST_FIRST(&(cpus[cpuid].runq.l_env_free_list))))
 		return -E_NO_FREE_ENV;
 
 	// Allocate and set up the page directory for this environment.
@@ -354,6 +439,18 @@ env_create(uint8_t *binary, size_t size)
 	load_icode(env, binary, size);
 }
 
+void
+env_create_oncpu(uint8_t *binary, size_t size, int cpuid)
+{
+	int errno;
+	struct Env* env;
+
+	errno = env_alloc_oncpu(&env, 0, cpuid);
+	if (errno < 0)
+		panic("(env_create_oncpu) %e", errno);
+	load_icode(env, binary, size);	
+}
+
 //
 // Frees env e and all memory it uses.
 // 
@@ -418,7 +515,8 @@ env_destroy(struct Env *e)
 	env_free(e);
 	if (curenv == e) {
 		curenv = NULL;
-		sched_yield();
+//		sched_yield();
+		sched_yield_smp();
 	}
 }
 
@@ -467,9 +565,28 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
+	
+	// with the addition of multiple cpus, we need to know which
+	// environments are runnable and which are running so that CPUS will run
+	// the envs that are RUNNABLE and not those that are RUNNING
+	cprintf("(env_run) cpu%d is going to run envid = %d\n", thisCPU->id, ENVX(e->env_id));
+	if (curenv != NULL)
+		curenv->env_status = ENV_RUNNABLE;
+	
 	curenv = e;
-	curenv->env_runs++;
+	e->env_runs++;
+	e->env_status = ENV_RUNNING;
 	lcr3(curenv->env_cr3);
+
+	unlock_kernel();
 	env_pop_tf(&(e->env_tf));
+	/* if (thisCPU->runq.l_curenv != NULL) */
+	/* 	thisCPU->runq.l_curenv->env_status = ENV_RUNNABLE; */
+	
+	/* thisCPU->runq.l_curenv = e; */
+	/* thisCPU->runq.l_curenv->env_runs++; */
+	/* thisCPU->runq.l_curenv->env_status = ENV_RUNNING; */
+	/* lcr3(thisCPU->runq.l_curenv->env_cr3); */
+	/* env_pop_tf(&(e->env_tf)); */
 }
 

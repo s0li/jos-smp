@@ -17,6 +17,7 @@
 #include <kern/lapic.h>
 #include <kern/ioapic.h>
 #include <kern/cpu.h>
+#include <kern/spinlock.h>
 
 #include <inc/types.h>
 #include <inc/x86.h>
@@ -43,11 +44,11 @@ i386_init(void)
 	// Lab 2 memory management initialization functions
 	i386_detect_memory();
 	i386_vm_init();
-	
+
 	// Lab 3 user environment initialization functions
 	env_init();
 //	cprintf("(i386_init) cpus = %x, cpunum() = %d\n", cpus, cpunum());
-	thisCPU = &cpus[cpunum()];
+	
 		
 	idt_init();
 
@@ -74,21 +75,26 @@ i386_init(void)
 	// the kclock init isn't needed anymore beacuse we init the
 	//clock tick in lapicinit
 //	kclock_init();
+
+	lock_kernel();
+	
 	if (ncpu > 1)
 		bootothers();
-
-	/* int k = 0; */
-	/* while (1) { */
-	/* 	if (k++ % 10000000 == 0) */
-	/* 		cprintf("cpu%d reporting in\n", thisCPU->id); */
-	/* } */
 	
 	// Should always have an idle process as first one.
-	extern uint8_t _binary_obj_user_idle_start[];
-	cprintf("(i386_init) idle addr = %x\n", _binary_obj_user_idle_start);
+	/* extern uint8_t _binary_obj_user_idle_start[]; */
+	/* cprintf("(i386_init) idle addr = %x\n", _binary_obj_user_idle_start); */
 
 	thisCPU->booted = 1;
-	ENV_CREATE(user_idle);
+
+	unlock_kernel();
+	while (1)
+		;
+	
+//	ENV_CREATE(user_idle);
+	ENV_CREATE_ONCPU(user_idle, thisCPU->id);
+
+	
 //	ENV_CREATE(user_primes);
 
 	// Start fs.
@@ -112,7 +118,8 @@ i386_init(void)
 #endif // TEST*
 
 	// Schedule and run the first user environment!
- 	sched_yield();
+ 	sched_yield_smp();
+//	sched_yield();
 
 	// Drop into the kernel monitor.
 	while (1)
@@ -133,9 +140,9 @@ bootothers(void)
         code = (uchar*)KADDR(0x7000);
         memmove(code, bootother_start, bootother_end - bootother_start);
 
-	cprintf("bootoher_start = %x\n", bootother_start);
-	cprintf("bootoher_end = %x\n", bootother_end);
-	cprintf("code = %x\n", code);
+	/* cprintf("bootoher_start = %x\n", bootother_start); */
+	/* cprintf("bootoher_end = %x\n", bootother_end); */
+	/* cprintf("code = %x\n", code); */
         for(c = cpus; c < cpus+ncpu; c++){
                 if(c == cpus+cpunum())  // We've started already.
                         continue;
@@ -163,7 +170,6 @@ static void
 ap_init(void)
 {
 	lcr3(PADDR(boot_pgdir));
-	thisCPU = &cpus[cpunum()];
 	cprintf("(ap_init) cpu%d: starting\n", thisCPU->id);
 	
 	lapicinit(cpunum());
@@ -174,20 +180,17 @@ ap_init(void)
 	lldt(0);
 	
 	tss_init_percpu();
+	env_init_percpu();
 	// ----------------------------------------
+
+	ENV_CREATE_ONCPU(user_idle, thisCPU->id);
 
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up
-//        scheduler();     // start running processes
-	sched_yield();
 
-	int k = 0;
-	while(1) { if (k++ == 1) cprintf("(ap_init) ap entered while(1)\n"); }
-	/* int k = 0; */
-	/* while(1) { */
-	/* 	if (k++ % 10000000 == 0) */
-	/* 		cprintf("--- cpu%d reporting in ---\n", cpunum()); */
-	/* } */
+	// only one processor at a time in the scheduler
+	lock_kernel();
+	sched_yield_smp();
 }
 
 /*

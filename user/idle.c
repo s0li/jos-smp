@@ -15,7 +15,7 @@ umain(void)
 	// doing so allows the processor to conserve power more effectively.
 	int i = 0;
 	while (1) {
-		cprintf("(user_idle) hello from user land\n");
+		cprintf(">>>> (user_idle) hello from user land\n");
 		sys_yield();
 
 		// Break into the JOS kernel monitor after each sys_yield().
@@ -26,6 +26,7 @@ umain(void)
 		// if we invoke the kernel monitor after each iteration,
 		// because the first invocation of the idle environment
 		// usually means everything else has run to completion.
+		
 		breakpoint();
 	}
 }

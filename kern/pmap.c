@@ -12,6 +12,7 @@
 #include <kern/env.h>
 
 #include <kern/mp.h>
+#include <kern/smp-params.h>
 
 // These variables are set by i386_detect_memory()
 static physaddr_t maxpa;	// Maximum physical address
@@ -188,8 +189,11 @@ i386_vm_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-	cprintf("%d\n", NENV * sizeof(struct Env) * 4);
 	envs = (struct Env*) boot_alloc(NENV * sizeof(struct Env), PGSIZE);
+	for (cpuid = 0; cpuid < NCPU; ++cpuid) {
+//		cprintf("cpuid * nenv_per_cpu = %d\n", cpuid * NENV_PER_CPU);
+		cpus[cpuid].runq.l_envs = &envs[cpuid * NENV_PER_CPU];
+	}
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set

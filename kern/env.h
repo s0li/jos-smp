@@ -5,6 +5,9 @@
 
 #include <inc/env.h>
 
+//#include <kern/cpu.h>
+
+// TODO - delete this, doesn't appear anywhere else (?)
 #ifndef JOS_MULTIENV
 // Change this value to 1 once you're allowing multiple environments
 // (for UCLA: Lab 3, Part 3; for MIT: Lab 4).
@@ -12,7 +15,9 @@
 #endif
 
 extern struct Env *envs;		// All environments
-extern struct Env *curenv;		// Current environment
+//extern struct Env *curenv;		// Current environment
+//moved curenv to cpu.h
+//#define curenv (thisCPU->runq.l_curenv) 
 
 LIST_HEAD(Env_list, Env);		// Declares 'struct Env_list'
 
@@ -39,5 +44,18 @@ void	env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
 	env_create(_binary_obj_##x##_start,		\
 		(int)_binary_obj_##x##_size);		\
 }
+
+#define ENV_CREATE_ONCPU(x, cpuid)		{	\
+	extern uint8_t _binary_obj_##x##_start[],	\
+		_binary_obj_##x##_size[];		\
+	env_create_oncpu(_binary_obj_##x##_start,	\
+			 (int)_binary_obj_##x##_size,	\
+			 cpuid);			\
+}
+
+// SMP
+void 	env_init_percpu(void);
+void 	env_create_oncpu(uint8_t *binary, size_t size, int cpuid);
+int 	env_alloc_oncpu(struct Env **newenv_store, envid_t parent_id, int cpuid);
 
 #endif // !JOS_KERN_ENV_H

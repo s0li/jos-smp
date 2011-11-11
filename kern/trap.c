@@ -14,6 +14,7 @@
 
 #include <kern/mp.h>
 #include <kern/cpu.h>
+#include <kern/spinlock.h>
 
 static struct Taskstate ts;
 
@@ -222,7 +223,8 @@ trap_dispatch(struct Trapframe *tf)
 
 	case IRQ_OFFSET + IRQ_TIMER:
 		cprintf("timer interrupt\n");
-		sched_yield();
+//		sched_yield();
+		sched_yield_smp();
 		return;
 	case IRQ_OFFSET + IRQ_SPURIOUS:
 		// Handle spurious interrupts
@@ -236,7 +238,7 @@ trap_dispatch(struct Trapframe *tf)
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
+		panic("unhandled trap in kernel, cpuid = %d", thisCPU->id);
 	else {
 		env_destroy(curenv);
 		return;
@@ -260,6 +262,8 @@ trap(struct Trapframe *tf)
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
+		lock_kernel();
+		
 		assert(curenv);
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
@@ -275,7 +279,8 @@ trap(struct Trapframe *tf)
 	if (curenv && curenv->env_status == ENV_RUNNABLE)
 		env_run(curenv);
 	else
-		sched_yield();
+//		sched_yield();
+		sched_yield_smp();
 }
 
 

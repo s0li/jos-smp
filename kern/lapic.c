@@ -1,6 +1,7 @@
 #include <kern/lapic.h>
 #include <kern/picirq.h>
 #include <kern/pmap.h>
+#include <kern/cpu.h>
 #include <kern/mp.h>
 
 #include <inc/stdio.h>
@@ -12,7 +13,7 @@
 #define	IO_RTC		0x070		/* RTC port */
 #endif
 
-extern struct CPU *thisCPU;
+//extern struct CPU *thisCPU;
 
 static void
 lapicw(int index, int value)

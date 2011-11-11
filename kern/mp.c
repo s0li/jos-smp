@@ -178,7 +178,6 @@ mpinit(void) {
                                 ismp = 0;
                         }
                         if(proc->flags & MPBOOT) {
-				cprintf("(mpinit) bcpu is chaning to %x\n", &cpus[ncpu]);
                                 bcpu = &cpus[ncpu];
 			}
 			if (ncpu < NCPU) {
@@ -207,7 +206,6 @@ mpinit(void) {
                 }
         }
 
-	cprintf("(mpinit) after loop bcpu = %x\n", bcpu);
         if(!ismp){
 		cprintf(" -- debug -- (mpinit) SMP conf not found\n");
 		
