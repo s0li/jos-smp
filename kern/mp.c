@@ -184,9 +184,10 @@ mpinit(void) {
 				cpus[ncpu].id = ncpu;
 				ncpu++;
 			}
-			else
+			else {
 				cprintf("(mpinit) too many CPUs detected, CPU %d disabled\n",
 					proc->apicid);
+			}
 			
                         p += sizeof(struct mpproc);
                         continue;

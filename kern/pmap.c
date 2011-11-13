@@ -37,24 +37,34 @@ static struct Page_list page_free_list;	// Free list of physical pages
 struct Segdesc gdt[NCPU + 5] =
 {
 	// 0x0 - unused (always faults -- for trapping NULL far pointers)
+	// index = 0
 	SEG_NULL,
 
 	// 0x8 - kernel code segment
+	// index = 1
 	[GD_KT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 0),
 
 	// 0x10 - kernel data segment
+	// index = 2
 	[GD_KD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 0),
 
 	// 0x18 - user code segment
+	// index = 3
 	[GD_UT >> 3] = SEG(STA_X | STA_R, 0x0, 0xffffffff, 3),
 
 	// 0x20 - user data segment
+	// index = 4
 	[GD_UD >> 3] = SEG(STA_W, 0x0, 0xffffffff, 3),
 
 	// 0x28 - tss, initialized in idt_init()
+	// index = 5
 	[GD_TSS0 >> 3] = SEG_NULL,
+	// index = 6
 	[GD_TSS1 >> 3] = SEG_NULL,
-	[GD_TSS2 >> 3] = SEG_NULL
+	// index = 7
+	[GD_TSS2 >> 3] = SEG_NULL,
+	// index = 8
+	[GD_TSS3 >> 3] = SEG_NULL
 };
 
 struct Pseudodesc gdt_pd = {
@@ -239,8 +249,11 @@ i386_vm_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_segment(pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE,
-			 PADDR((uintptr_t)bootstack), PTE_W);
+
+	// SMP - no longer needed (see the allocation loop for the stack further
+	// down the function.
+//	boot_map_segment(pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE,
+//			 PADDR((uintptr_t)bootstack), PTE_W);
 	
 
 	//////////////////////////////////////////////////////////////////////
@@ -264,15 +277,15 @@ i386_vm_init(void)
 
 	// Map kernel stacks for all CPUs
 	for (cpuid = 0; cpuid < NCPU; ++cpuid) {
-		boot_map_segment(pgdir, (KSTACKTOP - cpuid * (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE,
+		cprintf("(i386_vm_init) cpuid = %d, stacktop = %x\n",
+			cpuid,
+			KSTACKTOP - cpuid * (KSTKSIZE + KSTKGAP));
+		
+		boot_map_segment(pgdir, (KSTACKTOP - cpuid * (KSTKSIZE + KSTKGAP)) - KSTKSIZE,
+				 KSTKSIZE,
 				 PADDR((uintptr_t)kstacks[cpuid]), PTE_W);
 	}
 
-	
-	/* boot_map_segment(pgdir, (KSTACKTOP - (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE, */
-	/* 		 PADDR((uintptr_t)kstacks[1]), PTE_W); */
-	/* boot_map_segment(pgdir, (KSTACKTOP - 2 * (KSTKSIZE + KSTKGAP)) - KSTKSIZE, KSTKSIZE, */
-	/* 		 PADDR((uintptr_t)kstacks[2]), PTE_W); */
 	// --------------------------------------------------
 
 	// Check that the initial page directory has been set up correctly.
@@ -299,7 +312,7 @@ i386_vm_init(void)
 
 	// Install page table.
 	lcr3(boot_cr3);
-	
+
 	// Turn on paging.
 	cr0 = rcr0();
 	cr0 |= CR0_PE|CR0_PG|CR0_AM|CR0_WP|CR0_NE|CR0_TS|CR0_EM|CR0_MP;

@@ -52,6 +52,7 @@ pic_init(void)
 	// NB Automatic EOI mode doesn't tend to work on the slave.
 	// Linux source code says it's "to be investigated".
 	outb(IO_PIC2+1, 0x01);			// ICW4
+//	outb(IO_PIC2+1, 0x3);			// ICW4
 
 	// OCW3:  0ef01prs
 	//   ef:  0x = NOP, 10 = clear specific mask, 11 = set specific mask
@@ -65,6 +66,12 @@ pic_init(void)
 
 	if (irq_mask_8259A != 0xFFFF)
 		irq_setmask_8259A(irq_mask_8259A);
+}
+
+void
+picenable(int irq)
+{
+        irq_setmask_8259A(irq_mask_8259A & ~(1<<irq));
 }
 
 void

@@ -41,6 +41,7 @@ volatile uint *lapic;  // Initialized in mp.c
 
 void lapicinit(int c);
 void lapicstartap(uchar apicid, uint addr);
+void lapic_eoi(void);
 int  cpunum(void);
 
 #endif

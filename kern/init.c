@@ -34,12 +34,12 @@ i386_init(void)
 	// Clear the uninitialized global data (BSS) section of our program.
 	// This ensures that all static/global variables start out zero.
 	memset(edata, 0, end - edata);
- 	
+
 	// Initialize the console.
 	// Can't call cprintf until after we do this!
 	// TODO (?)
 	// cprintf("ohrly\n");
-	cons_init();
+	console_init();
 	
 	// Lab 2 memory management initialization functions
 	i386_detect_memory();
@@ -48,7 +48,6 @@ i386_init(void)
 	// Lab 3 user environment initialization functions
 	env_init();
 //	cprintf("(i386_init) cpus = %x, cpunum() = %d\n", cpus, cpunum());
-	
 		
 	idt_init();
 
@@ -62,7 +61,7 @@ i386_init(void)
 //	cprintf("(i386_init) bcpu = %x\n", bcpu);
 	
 	lapicinit(mpbcpu()); // Local APIC
-	ioapicinit();        // IO APIC
+//	ioapicinit();        // IO APIC
 
 //	cprintf("(i386_init) lapic = %x\n", lapic);
 	// ------------------------------------------------------------
@@ -190,7 +189,6 @@ ap_init(void)
 
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up
-
 	// only one processor at a time in the scheduler
 	lock_kernel();
 	sched_yield_smp();

@@ -20,5 +20,6 @@
 volatile struct ioapic* ioapic;
 
 void ioapicinit(void);
+void ioapicenable(int irq, int cpunum);
 
 #endif

@@ -13,8 +13,6 @@
 #define	IO_RTC		0x070		/* RTC port */
 #endif
 
-//extern struct CPU *thisCPU;
-
 static void
 lapicw(int index, int value)
 {
@@ -49,8 +47,6 @@ lapicinit(int c)
 	// BSP's local APIC in Virtual Wire Mode, in which 8259A's
 	// INTR is virtually connected to BSP's LINTIN0. In this mode,
 	// we do not need to program the IOAPIC.
-//        if (thisCPU != bcpu)
-//		lapicw(LINT0, MASKED);
 	cprintf("(lapicinit) thisCPU = %x, bcpu = %x\n", thisCPU, bcpu);
 	if (thisCPU != bcpu)
 		lapicw(LINT0, MASKED);
@@ -126,6 +122,13 @@ lapicstartap(uchar apicid, uint addr)
         }
 }
 
+void
+lapic_eoi(void)
+{
+	if (lapic)
+		lapicw(EOI, 0);
+}
+
 int
 cpunum(void) {
 	// Cannot call cpu when interrupts are enabled:
@@ -139,6 +142,9 @@ cpunum(void) {
                         cprintf("cpu called from %x with interrupts enabled\n",
                                 __builtin_return_address(0));
         }
+
+	/* if (lapic) */
+	/* 	assert((lapic[ID]>>24) < 4); */
 
         if(lapic)
                 return lapic[ID]>>24;

@@ -21,6 +21,7 @@
 
 #define GD_TSS1    0x30     // Task segment selector
 #define GD_TSS2    0x38     // Task segment selector
+#define GD_TSS3	   0x40
 
 
 /*

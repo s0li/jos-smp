@@ -417,7 +417,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	page_insert(e->env_pgdir, usrstack, (void*)(USTACKTOP - PGSIZE),
 		    PTE_U | PTE_W | PTE_P);
 	e->env_tf.tf_eip = ((struct Elf*)binary)->e_entry;
-	cprintf("(load_icode) user eip = %x\n", e->env_tf.tf_eip);
+//	cprintf("(load_icode) user eip = %x\n", e->env_tf.tf_eip);
 }
 
 //

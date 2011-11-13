@@ -150,22 +150,22 @@ idt_init(void)
 // Initialize the TSS and TSS descriptor.
 void
 tss_init_percpu(void) {
-	int cpuid = cpunum();
-	
 //	thisCPU = &cpus[cpuid];
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	thisCPU->ts.ts_esp0 = (uintptr_t)kstacks[cpuid] + KSTKSIZE;
-//	thisCPU->ts.ts_esp0 = KSTACKTOP;
+//	thisCPU->ts.ts_esp0 = (uintptr_t)kstacks[cpuid] + KSTKSIZE;
+	thisCPU->ts.ts_esp0 = KSTACKTOP - thisCPU->id * (KSTKSIZE + KSTKGAP);
+//	cprintf("ts_esp0 = %x\n", thisCPU->ts.ts_esp0);
+	
 	thisCPU->ts.ts_ss0 = GD_KD;	
 
 	// Initialize the TSS field of the gdt.
-	gdt[(GD_TSS0 >> 3) + cpuid] = SEG16(STS_T32A, (uint32_t) (&(thisCPU->ts)),
+	gdt[(GD_TSS0 >> 3) + thisCPU->id] = SEG16(STS_T32A, (uint32_t) (&(thisCPU->ts)),
 					    sizeof(struct Taskstate), 0);
-	gdt[(GD_TSS0 >> 3) + cpuid].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + thisCPU->id].sd_s = 0;
 
 	// Load the TSS
-	ltr(((GD_TSS0 >> 3) + cpuid) << 3);
+	ltr(((GD_TSS0 >> 3) + thisCPU->id) << 3);
 
 	// Load the IDT
 	asm volatile("lidt idt_pd");
@@ -224,6 +224,7 @@ trap_dispatch(struct Trapframe *tf)
 	case IRQ_OFFSET + IRQ_TIMER:
 //		cprintf("timer interrupt\n");
 //		sched_yield();
+		lapic_eoi();
 		sched_yield_smp();
 		return;
 	case IRQ_OFFSET + IRQ_KBD:

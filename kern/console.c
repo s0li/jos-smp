@@ -6,8 +6,11 @@
 #include <inc/string.h>
 #include <inc/assert.h>
 
+#include <inc/trap.h>
+
 #include <kern/console.h>
 #include <kern/picirq.h>
+#include <kern/ioapic.h>
 
 static void cons_intr(int (*proc)(void));
 static void cons_putc(int c);
@@ -31,20 +34,20 @@ delay(void)
 #define COM_DLL		0	// Out: Divisor Latch Low (DLAB=1)
 #define COM_DLM		1	// Out: Divisor Latch High (DLAB=1)
 #define COM_IER		1	// Out: Interrupt Enable Register
-#define   COM_IER_RDI	0x01	//   Enable receiver data interrupt
+#define COM_IER_RDI	0x01	//   Enable receiver data interrupt
 #define COM_IIR		2	// In:	Interrupt ID Register
 #define COM_FCR		2	// Out: FIFO Control Register
 #define COM_LCR		3	// Out: Line Control Register
-#define	  COM_LCR_DLAB	0x80	//   Divisor latch access bit
-#define	  COM_LCR_WLEN8	0x03	//   Wordlength: 8 bits
+#define	COM_LCR_DLAB	0x80	//   Divisor latch access bit
+#define	COM_LCR_WLEN8	0x03	//   Wordlength: 8 bits
 #define COM_MCR		4	// Out: Modem Control Register
-#define	  COM_MCR_RTS	0x02	// RTS complement
-#define	  COM_MCR_DTR	0x01	// DTR complement
-#define	  COM_MCR_OUT2	0x08	// Out2 complement
+#define	COM_MCR_RTS	0x02	// RTS complement
+#define	COM_MCR_DTR	0x01	// DTR complement
+#define	COM_MCR_OUT2	0x08	// Out2 complement
 #define COM_LSR		5	// In:	Line Status Register
-#define   COM_LSR_DATA	0x01	//   Data available
-#define   COM_LSR_TXRDY	0x20	//   Transmit buffer avail
-#define   COM_LSR_TSRE	0x40	//   Transmitter off
+#define COM_LSR_DATA	0x01	//   Data available
+#define COM_LSR_TXRDY	0x20	//   Transmit buffer avail
+#define COM_LSR_TSRE	0x40	//   Transmitter off
 
 static bool serial_exists;
 
@@ -87,6 +90,12 @@ serial_init(void)
 	outb(COM1+COM_DLL, (uint8_t) (115200 / 9600));
 	outb(COM1+COM_DLM, 0);
 
+	// added from xv6
+	outb(COM1+3, 0x03);    // Lock divisor, 8 data bits.
+        outb(COM1+4, 0);
+        outb(COM1+1, 0x01);    // Enable receive interrupts.
+	// ---
+
 	// 8 data bits, 1 stop bit, parity off; turn off DLAB latch
 	outb(COM1+COM_LCR, COM_LCR_WLEN8 & ~COM_LCR_DLAB);
 
@@ -101,6 +110,10 @@ serial_init(void)
 	(void) inb(COM1+COM_IIR);
 	(void) inb(COM1+COM_RX);
 
+	// added from xv6
+	/* picenable(IRQ_SERIAL); */
+	/* ioapicenable(IRQ_SERIAL, 0); */
+	// ---
 }
 
 
@@ -439,7 +452,7 @@ cons_putc(int c)
 
 // initialize the console devices
 void
-cons_init(void)
+console_init(void)
 {
 	cga_init();
 	kbd_init();

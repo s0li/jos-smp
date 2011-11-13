@@ -51,3 +51,15 @@ ioapicinit(void)
         }
 }
 
+void
+ioapicenable(int irq, int cpunum)
+{
+        if(!ismp)
+                return;
+
+        // Mark interrupt edge-triggered, active high,
+        // enabled, and routed to the given cpunum,
+        // which happens to be that cpu's APIC ID.
+        ioapicwrite(REG_TABLE+2*irq, IRQ_OFFSET + irq);
+        ioapicwrite(REG_TABLE+2*irq+1, cpunum << 24);
+}
