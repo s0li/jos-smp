@@ -13,6 +13,9 @@
 // before i386_init runs segmentation is set so that addresses
 // 0x0 through 0x0f...f (physical) are mapped to 0xf0...0 through 0xf...f
 
+// like KADDR TODO
+#define PHY2KADDR(x)	(void*)(KERNBASE + x)
+
 struct mp {			// floating pointer
         uchar signature[4];     // "_MP_"
         void *physaddr;         // phys addr of MP config table
@@ -81,7 +84,8 @@ mpsearch1(uchar *addr, int len)
         /*                 return (struct mp*)p; */
 	/* } */
         /* return 0; */
-	struct mp *mp = KADDR((physaddr_t)addr), *end = KADDR((physaddr_t)addr + len);
+	struct mp *mp = PHY2KADDR((physaddr_t)addr), *end =
+		PHY2KADDR((physaddr_t)addr + len);
 
 	for (; mp < end; mp++)
 		if (memcmp(mp->signature, "_MP_", 4) == 0 &&
@@ -104,7 +108,7 @@ mpsearch(void)
         struct mp *mp;
 
 	// bda = BIOS data area (?)
-        bda = (uchar*)KADDR(0x400);
+        bda = (uchar*)PHY2KADDR(0x400);
         if((p = ((bda[0x0F]<<8)|bda[0x0E]) << 4)){
                 if((mp = mpsearch1((uchar*)p, 1024)))
                         return mp;
@@ -133,7 +137,7 @@ mpconfig(struct mp **pmp)
 	
         if((mp = mpsearch()) == 0 || mp->physaddr == 0)
                 return 0;
-        conf = (struct mpconf*)(KADDR((uintptr_t)mp->physaddr));
+        conf = (struct mpconf*)(PHY2KADDR((uintptr_t)mp->physaddr));
         if(memcmp(conf, "PCMP", 4) != 0)
                 return 0;
         if(conf->version != 1 && conf->version != 4)

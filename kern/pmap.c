@@ -195,7 +195,6 @@ i386_vm_init(void)
 	// Your code goes here:
 	pages = (struct Page*) boot_alloc(npage * sizeof(struct Page), PGSIZE);
 
-
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
@@ -538,6 +537,7 @@ page_init(void)
 	//     This way we preserve the real-mode IDT and BIOS structures
 	//     in case we ever need them.  (Currently we don't, but...)
 	init_mark_page_in_use(0);
+	init_mark_page_in_use(page2ppn(pa2page(0x7000)));
 
 	//  2) The rest of base memory, [PGSIZE, basemem) is free.
 	for (i = (PGSIZE >> PGSHIFT); i < (basemem >> PGSHIFT); i++)

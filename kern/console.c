@@ -111,8 +111,8 @@ serial_init(void)
 	(void) inb(COM1+COM_RX);
 
 	// added from xv6
-	/* picenable(IRQ_SERIAL); */
-	/* ioapicenable(IRQ_SERIAL, 0); */
+	picenable(IRQ_SERIAL);
+	ioapicenable(IRQ_SERIAL, 0);
 	// ---
 }
 
@@ -386,6 +386,7 @@ kbd_init(void)
 	// Drain the kbd buffer so that Bochs generates interrupts.
 	kbd_intr();
 	irq_setmask_8259A(irq_mask_8259A & ~(1<<1));
+	ioapicenable(IRQ_KBD, 0);
 }
 
 

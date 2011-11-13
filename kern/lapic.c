@@ -48,8 +48,9 @@ lapicinit(int c)
 	// INTR is virtually connected to BSP's LINTIN0. In this mode,
 	// we do not need to program the IOAPIC.
 	cprintf("(lapicinit) thisCPU = %x, bcpu = %x\n", thisCPU, bcpu);
-	if (thisCPU != bcpu)
-		lapicw(LINT0, MASKED);
+	/* if (thisCPU != bcpu) */
+	/* 	lapicw(LINT0, MASKED); */
+	lapicw(LINT0, MASKED);
 //	lapicw(LINT0, MASKED);
         lapicw(LINT1, MASKED);
 

@@ -35,10 +35,11 @@ i386_init(void)
 	// This ensures that all static/global variables start out zero.
 	memset(edata, 0, end - edata);
 
-	// Initialize the console.
-	// Can't call cprintf until after we do this!
-	// TODO (?)
-	// cprintf("ohrly\n");
+	mpinit();
+	lapicinit(mpbcpu()); // Local APIC
+	pic_init();
+	ioapicinit();        // IO APIC
+
 	console_init();
 	
 	// Lab 2 memory management initialization functions
@@ -56,11 +57,11 @@ i386_init(void)
 
 	// right now this code must be after i386_detect_memory() because
 	// we use KADDR which depends on npage var
-	mpinit();  // collect info about this machine
+//	mpinit();  // collect info about this machine
 	
 //	cprintf("(i386_init) bcpu = %x\n", bcpu);
 	
-	lapicinit(mpbcpu()); // Local APIC
+//	lapicinit(mpbcpu()); // Local APIC
 //	ioapicinit();        // IO APIC
 
 //	cprintf("(i386_init) lapic = %x\n", lapic);
@@ -69,22 +70,24 @@ i386_init(void)
 
 	// Lab 4 multitasking initialization functions
 	// TODO is this really needed with the ioapic enabled?
-	pic_init();
+//	pic_init();
 	
 	// the kclock init isn't needed anymore beacuse we init the
 	//clock tick in lapicinit
 //	kclock_init();
+	if (!ismp)
+		kclock_init(); 	// timer init via PIC
 
 	lock_kernel();
-	
+
+	thisCPU->booted = 1;
+
 	if (ncpu > 1)
 		bootothers();
 	
 	// Should always have an idle process as first one.
 	/* extern uint8_t _binary_obj_user_idle_start[]; */
 	/* cprintf("(i386_init) idle addr = %x\n", _binary_obj_user_idle_start); */
-
-	thisCPU->booted = 1;
 
 	/* unlock_kernel(); */
 	/* while (1) */
@@ -172,10 +175,10 @@ ap_init(void)
 {
 	lcr3(PADDR(boot_pgdir));
 	cprintf("(ap_init) cpu%d: starting\n", thisCPU->id);
-	
+
+	seginit();
 	lapicinit(cpunum());
 	
-	seginit();
 	// For good measure, clear the local descriptor table (LDT),
 	// since we don't use it.
 	lldt(0);
@@ -190,7 +193,13 @@ ap_init(void)
 //        idtinit();       // load idt register
         xchg(&thisCPU->booted, 1); // tell bootothers() we're up
 	// only one processor at a time in the scheduler
+
+
 	lock_kernel();
+	
+	if (thisCPU->id == 2)
+		cprintf(">>>>>>>>>>>>>>>>>>><<<<<<<<<<<<>>>>>>>>>>>\n");
+
 	sched_yield_smp();
 }
 

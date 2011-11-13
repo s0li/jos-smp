@@ -67,7 +67,6 @@ sched_yield_smp(void)
 //	cprintf("(sched_yield_smp) cpu%d, lowid = %d, highid = %d\n", thisCPU->id, low_id, high_id);
 	
 #define increment_id(x)		(((x + 1) % (high_id + 1)) == 0 ? low_id : x + 1)
-	
 	for (i = increment_id(curenv_indx); i != curenv_indx; i = increment_id(i)) {
 		if (i == low_id)
 			continue;

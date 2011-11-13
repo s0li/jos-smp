@@ -46,11 +46,16 @@ spinlock_acquire(struct Spinlock *lk)
 		panic("(spinlock_acquire) CPU%d is trying to acquire a lock that" \
 		      "it already has aqcuired", thisCPU->id);
 
+	if (thisCPU->id == 2)
+		cprintf("LOLOLOLOLOLOLOLOLOL\n");
+
+
 	// The xchg is atomic.
 	// It also serializes, so that reads after acquire are not
 	// reordered before it. 
-	while (xchg(&lk->locked, 1) != 0)
+	while (xchg(&lk->locked, 1) != 0) {
 		asm volatile ("pause");
+	}
 	
 	lk->cpu = thisCPU;
 	// TODO
